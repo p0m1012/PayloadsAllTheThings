@@ -8,7 +8,6 @@
 - [Exploit](#exploit)
     - [Google Maps](#google-maps)
     - [Algolia](#algolia)
-    - [AWS Access Key ID & Secret](#aws-access-key-id--secret)
     - [Slack API Token](#slack-api-token)
     - [Facebook Access Token](#facebook-access-token)
     - [Github client id and client secret](#github-client-id-and-client-secret)
@@ -23,16 +22,29 @@
 
 ## Tools
 
-- [KeyFinder - is a tool that let you find keys while surfing the web!](https://github.com/momenbasel/KeyFinder)
-- [KeyHacks - is a repository which shows quick ways in which API keys leaked by a bug bounty program can be checked to see if they're valid.](https://github.com/streaak/keyhacks)
-- [TruffleHog - Find credentials all over the place](https://github.com/trufflesecurity/truffleHog)
+- [momenbasel/KeyFinder](https://github.com/momenbasel/KeyFinder) - is a tool that let you find keys while surfing the web
+- [streaak/keyhacks](https://github.com/streaak/keyhacks) - is a repository which shows quick ways in which API keys leaked by a bug bounty program can be checked to see if they're valid
+- [trufflesecurity/truffleHog](https://github.com/trufflesecurity/truffleHog) - Find credentials all over the place
     ```ps1
     docker run -it -v "$PWD:/pwd" trufflesecurity/trufflehog:latest github --repo https://github.com/trufflesecurity/test_keys
     docker run -it -v "$PWD:/pwd" trufflesecurity/trufflehog:latest github --org=trufflesecurity
     trufflehog git https://github.com/trufflesecurity/trufflehog.git
     trufflehog github --endpoint https://api.github.com --org trufflesecurity --token GITHUB_TOKEN --debug --concurrency 2
     ```
-- [Trivy - General purpose vulnerability and misconfiguration scanner which also searches for API keys/secrets](https://github.com/aquasecurity/trivy)
+- [aquasecurity/trivy](https://github.com/aquasecurity/trivy) - General purpose vulnerability and misconfiguration scanner which also searches for API keys/secrets
+- [projectdiscovery/nuclei-templates](https://github.com/projectdiscovery/nuclei-templates) - Use these templates to test an API token against many API service endpoints
+    ```powershell
+    nuclei -t token-spray/ -var token=token_list.txt
+    ```
+- [blacklanternsecurity/badsecrets](https://github.com/blacklanternsecurity/badsecrets) - A library for detecting known or weak secrets on across many platforms
+    ```ps1
+    python examples/cli.py --url http://example.com/contains_bad_secret.html
+    python examples/cli.py eyJhbGciOiJIUzI1NiJ9.eyJJc3N1ZXIiOiJJc3N1ZXIiLCJVc2VybmFtZSI6IkJhZFNlY3JldHMiLCJleHAiOjE1OTMxMzM0ODMsImlhdCI6MTQ2NjkwMzA4M30.ovqRikAo_0kKJ0GVrAwQlezymxrLGjcEiW_s3UJMMCo
+    python ./badsecrets/examples/blacklist3r.py --viewstate /wEPDwUJODExMDE5NzY5ZGQMKS6jehX5HkJgXxrPh09vumNTKQ== --generator EDD8C9AE
+    python ./badsecrets/examples/telerik_knownkey.py --url http://vulnerablesite/Telerik.Web.UI.DialogHandler.aspx
+    python ./badsecrets/examples/symfony_knownkey.py --url https://localhost/
+    ```
+- [mazen160/secrets-patterns-db](https://github.com/mazen160/secrets-patterns-db) - Secrets Patterns DB: The largest open-source Database for detecting secrets, API keys, passwords, tokens, and more.
     
 ## Exploit
 

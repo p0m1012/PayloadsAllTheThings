@@ -9,7 +9,7 @@ You can also contribute with a :beers: IRL, or using the sponsor button
 [![Sponsor](https://img.shields.io/static/v1?label=Sponsor&message=%E2%9D%A4&logo=GitHub&link=https://github.com/sponsors/swisskyrepo)](https://github.com/sponsors/swisskyrepo)
 [![Tweet](https://img.shields.io/twitter/url/http/shields.io.svg?style=social)](https://twitter.com/intent/tweet?text=Payloads%20All%20The%20Things,%20a%20list%20of%20useful%20payloads%20and%20bypasses%20for%20Web%20Application%20Security%20-%20by%20@pentest_swissky&url=https://github.com/swisskyrepo/PayloadsAllTheThings/)
 
-An alternative display version is available at [PayloadsAllTheThingsWeb](https://swisskyrepo.github.io/PayloadsAllTheThingsWeb/).
+An alternative display version is available at [PayloadsAllTheThingsWeb](https://swisskyrepo.github.io/PayloadsAllTheThings/).
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/swisskyrepo/PayloadsAllTheThings/master/.github/banner.png">
@@ -48,7 +48,6 @@ You might also like the `Methodology and Resources` folder :
   - [Windows - Persistence.md](https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Methodology%20and%20Resources/Windows%20-%20Persistence.md)
   - [Windows - Privilege Escalation.md](https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Methodology%20and%20Resources/Windows%20-%20Privilege%20Escalation.md)
   - [Windows - Using credentials.md](https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Methodology%20and%20Resources/Windows%20-%20Using%20credentials.md)
-- [CVE Exploits](https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/CVE%20Exploits)
 
 
 You want more ? Check the [Books](https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/_LEARNING_AND_SOCIALS/BOOKS.md) and [Youtube videos](https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/_LEARNING_AND_SOCIALS/YOUTUBE.md) selections.
@@ -72,5 +71,5 @@ Thanks again for your contribution! :heart:
 
 This project is proudly sponsored by these companies. 
 
-[<img src="https://avatars.githubusercontent.com/u/48131541?s=40&v=4">](https://github.com/vaadata)
+[<img src="https://avatars.githubusercontent.com/u/48131541?s=40&v=4">](https://www.vaadata.com/)
 [<img src="https://avatars.githubusercontent.com/u/50994705?s=40&v=4">](https://github.com/projectdiscovery)

